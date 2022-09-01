@@ -50,7 +50,7 @@ class taxYear:
         date = datetime.date
         today = date.today()
         self.week = today.isocalendar()[1] if not Week else Week
-        
+
         Year = today.year
         self.yearppp = Year - 3
         self.yearpp = Year - 2

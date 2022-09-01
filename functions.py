@@ -12,6 +12,13 @@ def PAYNO_Check(payno):
     except ValueError:
         return False
 
+def PAYNO_Convert(payno):
+    import numpy as np
+    try:
+        return int(payno)
+    except ValueError:
+        return np.nan
+    
 def check_index(item, l):
     n = 0
     for k in l:
@@ -25,7 +32,7 @@ def has_numbers(inputString):
 
 class tax_calcs:
     def __init__(self):
-        from Formats import taxYear 
+        from formats import taxYear 
         import datetime as datetime
         self.datetime = datetime
         self.taxYearRange = taxYear().Year('-')

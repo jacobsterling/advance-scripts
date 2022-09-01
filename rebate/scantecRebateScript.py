@@ -13,8 +13,8 @@ import xlsxwriter
 win32c = win32.constants
 from openpyxl.utils import get_column_letter
 from pathlib import Path
-from Functions import tax_calcs
-from Formats import taxYear
+from functions import tax_calcs
+from formats import taxYear
 import numpy as np
 
 Year = taxYear().Year('-')
@@ -25,33 +25,34 @@ Year = '2022'
 
 df1_path: str = r"C:\Users\jacob.sterling\advance.online\J Drive - Exec Reports\Margins Reports\Margins 2021-2022\Margins Report 2021-2022.xlsx"
 df_path: str = r"C:\Users\jacob.sterling\advance.online\J Drive - Exec Reports\Margins Reports\Margins 2022-2023\Margins Report 2022-2023.xlsx"
-data_path = Path(r"C:\Users\jacob.sterling\OneDrive - advance.online\Documents\Data")
+#data_path = Path(r"C:\Users\jacob.sterling\OneDrive - advance.online\Documents\Data")
 
 ###########run scantec workers from CRM
 
-df1_ = pd.read_excel(df1_path, sheet_name= 'Core Data',usecols = ['Client Name','Surname','Forename','Margins','CHQDATE']).rename(columns={'CHQDATE':'Date Paid','Margins':'Margin'})
-df1_ = df1_[df1_['Margin'] > 0]
-df1_['Client Name'] = df1_['Client Name'].str.upper()
-df1_ = df1_[df1_['Client Name'] == 'SCANTEC PERSONNEL LIMITED'].drop('Client Name',axis=1)
-df1_['Date Paid'] = pd.to_datetime(df1_['Date Paid'],format='%d/%m/%Y')
+# Email Address: grace.webber@advance.online
+# Password: Advance2018!
 
-df_ = pd.read_excel(df_path, sheet_name= 'Core Data',usecols = ['Client Name','Surname','Forename','Margins','CHQDATE']).rename(columns={'CHQDATE':'Date Paid','Margins':'Margin'})
+# df1_ = pd.read_excel(df1_path, sheet_name= 'Core Data',usecols = ['Client Name','Surname','Forename','Margins','CHQDATE',"Email Address"]).rename(columns={'CHQDATE':'Date Paid','Margins':'Margin'})
+# df1_ = df1_[df1_['Margin'] > 0]
+# df1_['Client Name'] = df1_['Client Name'].str.upper()
+# df1_ = df1_[df1_['Client Name'] == 'SCANTEC PERSONNEL LIMITED'].drop('Client Name',axis=1)
+# df1_['Date Paid'] = pd.to_datetime(df1_['Date Paid'],format='%d/%m/%Y')
+
+df_ = pd.read_excel(df_path, sheet_name= 'Core Data',usecols = ['Client Name','Surname','Forename','Margins','CHQDATE',"Email"]).rename(columns={'CHQDATE':'Date Paid','Margins':'Margin'})
 df_ = df_[df_['Margin'] > 0]
 df_['Client Name'] = df_['Client Name'].str.upper()
 df_ = df_[df_['Client Name'] == 'SCANTEC PERSONNEL LIMITED'].drop('Client Name',axis=1)
 df_['Date Paid'] = pd.to_datetime(df_['Date Paid'],format='%d/%m/%Y')
 
-Scantec_Workers = pd.read_csv(data_path / 'Scantec+Workers.csv', encoding = 'latin')
+Scantec_Workers = pd.read_csv('Scantec+Workers.csv', encoding = 'latin', na_values=["-"], skiprows=5)
+#Scantec_Workers['Full Name'] =  Scantec_Workers['Last Name']+ ' ' + Scantec_Workers['First Name'] # 'Full Name',
+Scantec_Workers = Scantec_Workers[['Consultant',"Email"]].rename(columns={'Consultant':'Consultant Name in CRM'}).dropna()#.drop_duplicates(subset = 'Full Name')
 
-Scantec_Workers['Full Name'] =  Scantec_Workers['Last Name']+ ' ' + Scantec_Workers['First Name']
-Scantec_Workers.loc[Scantec_Workers['Consultant'] == '-','Consultant'] = np.nan
-Scantec_Workers = Scantec_Workers[['Full Name','Consultant']].rename(columns={'Consultant':'Consultant Name in CRM'}).dropna().drop_duplicates(subset = 'Full Name')
-
-Scantec_Consultants = pd.read_excel(data_path / 'Scantec Consultants.xlsx',usecols = ['Name','Consultant_Code']).drop_duplicates(subset = 'Name')
+Scantec_Consultants = pd.read_excel('Scantec Consultants.xlsx',usecols = ['Name','Consultant_Code']).drop_duplicates(subset = 'Name')
 
 df_missing_con = pd.DataFrame()
 
-for n in range(4,5,1):######################change range
+for n in range(7,8,1):######################change range
     if len(str(n)) == 1:
         month_num = '0'+ str(n)
     else:
@@ -61,18 +62,18 @@ for n in range(4,5,1):######################change range
     month_name = datetime_object.strftime("%b")
     full_month_name = datetime_object.strftime("%B")
     
-    df_path_new: str = rf"C:\Users\jacob.sterling\OneDrive - advance.online\Documents\Data\Scantec\Scantec {month_name} {Year}.xlsx"
+    df_path_new: str = rf"Scantec Rebates\Scantec {month_name} {Year}.xlsx"
     
-    df1 = df1_[df1_['Date Paid'].dt.year == int(Year)]
-    df1 = df1[df1['Date Paid'].dt.month == int(month_num)]
-    df1['Full Name'] = df1['Surname'] + ' ' + df1['Forename']
+    # df1 = df1_[df1_['Date Paid'].dt.year == int(Year)]
+    # df1 = df1[df1['Date Paid'].dt.month == int(month_num)]
+    # df1['Full Name'] = df1['Surname'] + ' ' + df1['Forename']
 
     df = df_[df_['Date Paid'].dt.month == int(month_num)]
     df['Full Name'] = df['Surname'] + ' ' + df['Forename']
 
-    df = pd.concat([df,df1])
+    # df = pd.concat([df,df1])
 
-    df = pd.merge(df, Scantec_Workers,how="left")
+    df = pd.merge(df, Scantec_Workers, how="left").drop('Email',axis = 1)
     df = pd.merge(df, Scantec_Consultants, left_on = 'Consultant Name in CRM', right_on = 'Name', how = 'left').rename(columns={'Consultant_Code':'Reference'}).drop('Full Name',axis = 1).drop('Name',axis = 1)
     
     df_missing_con = df_missing_con.append(df.loc[df['Consultant Name in CRM'].isnull()])

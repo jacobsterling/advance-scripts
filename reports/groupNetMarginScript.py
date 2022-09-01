@@ -8,14 +8,14 @@ Created on Tue Feb  1 16:20:16 2022
 import pandas as pd
 import datetime
 import numpy as np
-from Functions import tax_calcs
-from Formats import taxYear
+from functions import tax_calcs
+from formats import taxYear
 from pathlib import Path
 
 Year = taxYear().Year('-')
 
 #change month num
-month_num = '04'
+month_num = '07'
 
 Week = tax_calcs().tax_week_calc() - 1
 
@@ -27,21 +27,10 @@ full_month_name = datetime_object.strftime("%B")
 
 file_path: str = rf"C:\Users\jacob.sterling\advance.online\J Drive - Exec Reports\Margins Reports\Margins {Year}"
 margins_path: str = rf"{file_path}\Margins Report {Year}.xlsx"
-groups_path: str = r"C:\Users\jacob.sterling\OneDrive - advance.online\Documents\Data\Groups.xlsx"
-df_path: str = rf"C:\Users\jacob.sterling\OneDrive - advance.online\Documents\Data\Net Margin {month_name} {Year}.xlsx"
-df_ACCOUNTS: str = rf"{file_path}\Data\Week {Week}\Accounts+Office.csv"
+groups_path: str = r"data\Groups.xlsx"
+df_path: str = rf"data\Net Margin {month_name} {Year}.xlsx"
 df_rebate_path: str = rf"C:\Users\jacob.sterling\advance.online\J Drive - Finance\Rebates Reports\Rebates {Year_format1}\April Rebates Import.xlsx"
  #{month_name} {Year_format2}
-df_ACCOUNTS = pd.read_csv(df_ACCOUNTS ,encoding = 'latin')
-df_ACCOUNTS = df_ACCOUNTS.drop(0 ,axis = 0)
-df_ACCOUNTS = df_ACCOUNTS[['Office Number','Account Owner']]
-df_ACCOUNTS.loc[df_ACCOUNTS['Office Number'] == '-','Office Number'] = np.nan
-df_ACCOUNTS.loc[df_ACCOUNTS['Account Owner'] == '-','Account Owner'] = np.nan
-df_ACCOUNTS = df_ACCOUNTS.dropna()
-df_ACCOUNTS['Office Number'] = df_ACCOUNTS['Office Number'].astype(int)
-df_ACCOUNTS.sort_values(['Office Number'], inplace = True)
-df_ACCOUNTS.reset_index(drop=True)
-df_ACCOUNTS = df_ACCOUNTS.drop_duplicates(subset=['Office Number'], keep='last')
 
 df_CLIENTS_IO: str = rf"{file_path}\Data\Week {Week}\clients io.csv"
 df_CLIENTS_AXM: str = rf"{file_path}\Data\Week {Week}\clients axm.csv"
@@ -49,48 +38,48 @@ df_CLIENTS_AXM: str = rf"{file_path}\Data\Week {Week}\clients axm.csv"
 df_CLIENTS = pd.concat([pd.read_csv(df_CLIENTS_IO,encoding = 'latin',
                                     usecols = ['Company Name                   ','OFFNO','Account','Stat A/C']),
                         pd.read_csv(df_CLIENTS_AXM,encoding = 'latin',
-                                    usecols = ['Company Name                   ','OFFNO','Account','Stat A/C'])]).fillna(0)
+                                    usecols = ['Company Name                   ','OFFNO','Account','Stat A/C'])])
     
 df_CLIENTS.columns = ['Client Name','OFFNO','Account','Account Code']
-df_CLIENTS.loc[df_CLIENTS['Account Code'] == 0, 'Account Code'] = df_CLIENTS.loc[df_CLIENTS['Account Code'] == 0,'Account']
-df_CLIENTS = df_CLIENTS.drop('Account',axis = 1)
+df_CLIENTS.loc[df_CLIENTS['Account Code'].isna(), 'Account Code'] = df_CLIENTS.loc[df_CLIENTS['Account Code'].isna(),'Account']
 df_CLIENTS['Client Name'] = df_CLIENTS['Client Name'].str.upper()
 df_CLIENTS.sort_values(["OFFNO"], inplace = True)
 df_CLIENTS = df_CLIENTS.reset_index(drop = True)
-df_CLIENTS.drop_duplicates(subset ="OFFNO",
-                     keep = "last", inplace = True)
-df_CLIENTS.drop_duplicates(subset ="Client Name",
-                     keep = "last", inplace = True)
+df_CLIENTS.drop_duplicates(subset ="OFFNO",keep = "last", inplace = True)
+df_CLIENTS.drop_duplicates(subset ="Client Name",keep = "last", inplace = True)
 
-df_CLIENTS = pd.merge(df_CLIENTS,df_ACCOUNTS, left_on = 'OFFNO',right_on = 'Office Number',how='left').drop('Office Number',axis=1)
+df_groups = pd.read_excel(groups_path)
+df_groups['Client Name']= df_groups['Client Name'].str.upper()
+df_groups['Name Change'] = df_groups['Name Change'].str.upper()
 
-df_COREDATA = pd.read_excel(margins_path, sheet_name= 'Core Data',usecols = ['Client Name','PAYNO','Margins','CHQDATE','Solution','Count of'])
+CORE_ACCOUNTS = ['Adam Shaw','Dave Levenston','Gerry Hunnisett','Sam Amos']
+
+for i, row in df_groups.iterrows():
+    df_CLIENTS.loc[df_CLIENTS['Client Name'] == row['Client Name'], 'Group Name'] = row['Name Change']
+
+df_COREDATA = pd.read_excel(margins_path, sheet_name= 'Core Data',usecols = ['Client Name','PAYNO','Margins','CHQDATE','Solution','Count of', "CRM"]).rename(columns={"CRM":"Account Owner"})
 
 df_COREDATA = df_COREDATA[df_COREDATA['CHQDATE'].dt.month == int(month_num)]
 df_COREDATA = df_COREDATA[df_COREDATA['CHQDATE'].dt.year == taxYear().yearc]
 df_COREDATA['CHQDATE'] = df_COREDATA['CHQDATE'].dt.strftime('%d/%m/%Y')
 df_COREDATA['Client Name'] = df_COREDATA['Client Name'].str.upper()
 
-df_margins = df_COREDATA[['Client Name','Margins','CHQDATE','Count of']]
+df_margins = df_COREDATA[['Client Name','Margins','CHQDATE','Count of',"Account Owner"]]
 df_margins = pd.merge(df_margins, df_CLIENTS, how = 'left',validate= 'many_to_one')
+
+for i, row in df_margins[~df_margins["Group Name"].isna()].iterrows():
+    if row["Account Owner"] in CORE_ACCOUNTS:
+        df_margins.loc[df_margins["Group Name"] == row["Group Name"], "Account Owner"] = row["Account Owner"]
+        
 df_margins = df_margins[df_margins['Margins'] != 0]
 df_margins['Average Margin'] = df_margins['Margins']
 
-CORE_ACCOUNTS = ['Adam Shaw','Dave Levenston','Gerry Hunnisett','Sam Amos']
-
-df_margins.loc[df_margins['Account Owner'].isin(CORE_ACCOUNTS) == False, 'Account Owner'] = 'Other Account'
-#df_margins = pd.merge(df_margins,pd.read_excel(groups_path), how = 'left')
+df_margins.loc[~df_margins['Group Name'].isna(), 'Client Name'] = df_margins.loc[~df_margins['Group Name'].isna(), 'Group Name']
+df_margins.loc[~df_margins['Account Owner'].isin(CORE_ACCOUNTS), 'Account Owner'] = 'Other Account'
 
 df_rebate = pd.read_excel(df_rebate_path ,usecols=['Merit Name','Account Code','Group Sum']).rename(columns={'Group Sum':'Rebate'})
-#df_rebate['Rebate'] = df_rebate['Rebate'].str.replace('£','').replace(',','').astype(float)
+
 df_rebate['Account Code'] = df_rebate['Account Code'].astype(str)
-
-df_groups = pd.read_excel(groups_path)
-df_groups['Client Name']= df_groups['Client Name'].str.upper()
-df_groups['Name Change'] = df_groups['Name Change'].str.upper()
-
-for i, row in df_groups.iterrows():
-    df_margins.loc[df_margins['Client Name'] == row['Client Name'],'Client Name'] = row['Name Change']
 
 df_pivot = pd.pivot_table(df_margins, values=['Count of','Margins','Average Margin'],
                           index=['Client Name','Account Code','OFFNO','Account Owner'], 
@@ -116,8 +105,9 @@ df_pivot = df_pivot.groupby(['Account Code']).agg(d).reset_index()
 df_pivot = pd.merge(df_pivot, df_rebate, how='outer', validate= 'one_to_one')
 df_unmerged_rebates = df_pivot[df_pivot['Client Name'].isnull() == True][['Merit Name','Rebate','Account Code']]
 df_pivot = df_pivot[df_pivot['Client Name'].isnull() == False].drop(['Merit Name'],axis = 1).fillna(0)
+    
 
-d = dict({'OFFNO':'first','Account Code':'first','Account Owner':'first'})
+d = dict({'OFFNO':'first','Account Code':'first','Account Owner': "first"})
 for i in list(df_margins['CHQDATE'].unique()):
     d.update(dict({i:sum}))
 d.update(dict({'All':sum,'Average Margin':np.mean,'Revenue':sum,'Rebate':sum}))
