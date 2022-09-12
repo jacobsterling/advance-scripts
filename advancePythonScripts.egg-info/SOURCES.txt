@@ -1,0 +1,48 @@
+setup.py
+ACR/ACR-2.py
+ACR/ACR-3.py
+ACR/ACR.py
+CRMPythonSDK/pythonSDK get record.py
+CRMPythonSDK/pythonSDK test.py
+CRMPythonSDK/pythonSDKtest.py
+MCR/MCR Report Script 21-22.py
+MCR/MCR Report Script.py
+advancePythonScripts.egg-info/PKG-INFO
+advancePythonScripts.egg-info/SOURCES.txt
+advancePythonScripts.egg-info/dependency_links.txt
+advancePythonScripts.egg-info/requires.txt
+advancePythonScripts.egg-info/top_level.txt
+rebates/JarVoucherScript.py
+rebates/Tax Rebate Booklet Reader.py
+rebates/Tax Rebate Creation Script.py
+rebates/formats.py
+rebates/functions.py
+rebates/rebates.py
+rebates/scantecRebateScript.py
+remitReaders/alexanderMannSolutionsPayrollScript.py
+remitReaders/armPayrollScript.py
+remitReaders/danielOwenMatchingScript.py
+remitReaders/experisMatchingScript.py
+remitReaders/experisPayrollScript.py
+remitReaders/fircoftPayrollScript.py
+remitReaders/goldGroupPayrollScript.py
+remitReaders/lignumPayroll.py
+remitReaders/nrlRemitMatchingScript.py
+remitReaders/scantecPayrollScript.py
+remitReaders/whiteLabelPayrollScript.py
+reports/0 margins script.py
+reports/Margins Report Script.py
+reports/bankUploadScript.py
+reports/expenseTracker.py
+reports/groupNetMarginScript.py
+reports/intermediaryReportTracker.py
+reports/lastPaidScript.py
+reports/lastWeekSetupSampleScript.py
+reports/rtwCheck.py
+reports/scantecContraScript.py
+reports/tenureScript.py
+utils/appendSysPath.py
+utils/formats.py
+utils/functions.py
+utils/iterEmails.py
+utils/taxYear.py

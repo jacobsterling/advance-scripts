@@ -56,38 +56,48 @@ class rebates:
     
     def run(self):
         for i, row in self.rebates.iterrows():
-            mn = 22 #default min margin
-            
             def strip_number(str):
                 if not self.pd.isnull(str):
-                    return float(str.replace("Â","").replace("£","").replace(" ", ""))
+                    try:
+                        return float(str.replace("Â","").replace("£","").replace(" ", ""))
+                    except ValueError:
+                        return None
                 else: 
                     return None
-        
-            match row["Solution"]:
-                case "CIS": 
-                    mn = strip_number(row["Retained Margin CIS"])
-                case "PAYE":
-                    match row["Type"]:
-                        case "Fixed Expenses":
-                            mn = strip_number(row["Retained Margin Umbrella with Expenses"])
-                        case "Mileage Only":
-                            mn = strip_number(row["Retained Margin Umbrella with Expenses"])
-                        case "Not Under SDC":
-                            mn = strip_number(row["Retained Margin Umbrella no Expenses"])  
-                case "SE":
-                    mn = strip_number(row["Retained Margin Non CIS (SE)"])
-                            
+                
+            min_list = []
+            
+            value = None
+            
+            cis = strip_number(row["Retained Margin CIS"])
+            if not self.pd.isnull(cis):
+                min_list.append(cis)
+            
+            umbw = strip_number(row["Retained Margin Umbrella with Expenses"])
+            if not self.pd.isnull(umbw):
+                min_list.append(umbw)
+            
+            umb = strip_number(row["Retained Margin Umbrella no Expenses"])
+            if not self.pd.isnull(umb):
+                min_list.append(umb)
+
+            se = strip_number(row["Retained Margin Non CIS (SE)"])
+            if not self.pd.isnull(se):
+                min_list.append(se)   
+
+            try:
+                min = min_list[0]
+            except IndexError:
+                min = 20#default min margin
+
+            margin = float(row["Margins"])
+            
             if not self.pd.isnull(row["Default Rebate"]):
                 try:
                     value = strip_number(row["Default Rebate"])
                 except ValueError:
                     raise Exception(f"Invalid Default Rebate format for offno: {row['Office Number']}")
-            else:
-                value = 0
-            
-            margin = float(row["Margins"])
-            
+                
             if not self.pd.isnull(row["Solution Conditions"]):
                 for condition in row["Solution Conditions"].split(","):
                     try:
@@ -95,10 +105,11 @@ class rebates:
                     except ValueError:
                         raise Exception(f"Invalid Rebate Condition format: {condition}, for offno: {row['Office Number']}")
                 
-                if solution == row["Solution.1"]:
+                if solution == row["Solution.1"] and margin >= min:
+                    print(solution)
                     value = strip_number(v)
                     break
-            
+                        
             if not self.pd.isnull(row["Margin Conditions"]):
                 for condition in row["Margin Conditions"].split("\n"):
                     try:
@@ -116,7 +127,7 @@ class rebates:
                         mx = float(mx.replace(" ", ""))    
                     except ValueError:
                         mx = None
-                        
+                    
                     if mx:
                         if mn <= margin <= mx:
                             value = self.valueCheck(v, margin)
@@ -128,6 +139,8 @@ class rebates:
             if row["Client Name"] == "CORRIE" and self.pd.isnull(row["PAYNO"]):
                 self.rebates.loc[i, "Rebate"] = float(self.paye.loc[row["Week Number"] - 1, "Rebate"])
             else:
+                # if not value:
+                #     print(mn, mx, margin, value, row["Account No"])
                 self.rebates.loc[i, "Rebate"] = value
                 
         self.export()
@@ -145,4 +158,4 @@ class rebates:
             self.monthMargins.to_excel(writer, sheet_name="Core Data", index= False)
         writer.save()
 
-rebates = rebates().run()
+rebates().run()
