@@ -12,9 +12,6 @@ from pathlib import Path
 from datetime import datetime
 from utils import formats
 
-#1111
-
-#grace.webber@advance.online
 #Advance2018!
 
 Year = formats.taxYear().Year("-")
