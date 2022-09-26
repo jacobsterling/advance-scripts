@@ -17,11 +17,12 @@ print('Initializing Script...')
 print(start)
 
 from pathlib import Path
+from utils.formats import day
+from utils.formats import taxYear
+from utils.functions import tax_calcs
+from remitReaders.armPayrollScript import armPayroll
+
 import pandas as pd
-from Formats import taxYear
-from Formats import day
-from Functions import tax_calcs
-from armPayrollScript import armPayroll
 import numpy as np
 
 dayToday = day().dayTodayFormat()
@@ -34,7 +35,7 @@ Year = taxYear().Year(" - ")
 
 yearFormat1 = taxYear().Year_format1("/")
 
-Week = tax_calcs().tax_week_calc()
+Week = tax_calcs().tax_week_calc() - 1
 
 pertempsPath = Path.home() / rf"advance.online/J Drive - Operations/Remittances and invoices/Pertemps/Tax Year {Year}/Week {Week}"
 
@@ -54,39 +55,49 @@ print('Reading Data...')
 print(datetime.datetime.now().time())
 
 for file in branchCodesPath.glob("*"):
-    if file.name.__contains__("Bank Actual Upload Template") and file.suffix == ".xlsm":
-        template = pd.read_excel(file, sheet_name = ["Accounts","Branch Codes"])
-        accounts = template['Accounts']
-        branchCodes = template['Branch Codes'].rename(columns={"PS Agency Code":"Account"})
+    if file.name.__contains__("Accounts") and file.suffix == ".csv":
+        accounts = pd.read_csv(file).drop_duplicates(subset="Description")
+    if file.name.__contains__('Branch Codes') and file.suffix == ".xlsx":
+        branchCodes = pd.read_excel(file)
         
-fileC, fileCStat = None, 0
-for file in clientsPath.glob("*"):
-    if file.name.__contains__(f"IO{Week}_Clients"):#file.stat().st_mtime > fileCStat and 
-        fileC = file
-        fileCStat = fileC.stat().st_mtime
-clients = pd.read_csv( fileC, header = None)
+# fileC, fileCStat = None, 0
+# for file in clientsPath.glob("*"):
+#     if file.name.__contains__(f"IO{Week}_Clients"):
+#         fileC = file
+#         fileCStat = fileC.stat().st_mtime
+# clients = pd.read_csv( fileC, header = None)
 
-fileC = None
+fileC, fileCStat = None, 0
 for file in bankPath.glob("*"):
     if file.name.__contains__(dayToday):
         fileC = file
         break
-    elif file.stat().st_mtime > fileC.stat().st_mtime:
+    elif file.stat().st_mtime > fileCStat:
         fileC = file
+        fileCStat = fileC.stat().st_mtime
 
-bankStatement = pd.read_csv( fileC ).dropna(subset=['Credit'])
+print('_______________________________________________________________________')
+print('')
+print('Formatting Bank Statement...')
+print(datetime.datetime.now().time())
+
+bankStatement = pd.read_csv( fileC , encoding="latin").dropna(subset=['Credit'])
 bankStatement = bankStatement[["Date","Narrative #1","Narrative #2","Credit"]].rename(columns={"Credit":"Value","Narrative #1":"Description","Narrative #2":"UF1"})
 bankStatement = bankStatement.merge(accounts,how = "left")
 
+if bankStatement["Description"].str.contains("ADVANCED RESOURCE").any() or bankStatement["Description"].str.contains("OPTAMOR LIMITED").any(): 
+    df = armPayroll(Week).readPDF()
+
 for i, row in bankStatement.iterrows():
-    date = pd.to_datetime(row["Date"])
-    
-    week = tax_calcs().tax_week_calc(pd.to_datetime(date))
-    
+    date = pd.to_datetime(row["Date"], format="%d/%m/%Y")
+    week = tax_calcs().tax_week_calc(date)
     if row["Description"] in ["ADVANCED RESOURCE","OPTAMOR LIMITED"]:
-        df = armPayroll(week).readPDF()
         for j, ref in df.iterrows():
-            if row["UF1"] == ref["Remittance Ref"]:
+            if str(row["UF1"]) == str(ref["Remittance Ref"]):
+                print('_______________________________________________________________________')
+                print('')
+                print(f'ARM Detected, Changing Remittance Ref {row["UF1"]} to {ref["Invoice Number"]}...')
+                print(datetime.datetime.now().time())
                 UF1 = ref["Invoice Number"]
     else:
         week = "0" + str(week) if week < 10 else str(week)
@@ -101,54 +112,55 @@ for i, row in bankStatement.iterrows():
 if input("Type 'y' to merge pertemps: ") == 'y':
     import pdfplumber
     import re
+    print('_______________________________________________________________________')
+    print('')
+    print(f'Reading Pertemps PDF Week {Week}...')
+    print(datetime.datetime.now().time())
     
-    newLinePattern = re.compile(r"((^[0-9A-Z][0-9]{2})\S[A][0-9]{5}).*")
-    namePattern = re.compile(r"([A-Z]{1}[a-z]+)")
-    datePattern = re.compile(r"([0-9]{2}/[0-9]{2}/[0-9]{4})")
-    valuesPattern = re.compile(r"([£][0-9]+[.][0-9]{2})")
-    
-    result = pd.DataFrame([],columns = ["UF1","Branch Code","Surname","Forenames","Date","Rate","Value","Gross"])
-    
+    result = pd.DataFrame([],columns = ["UF1","Branch Code","Surname","Forenames","Date","Rate","Value"])
+    newLinePattern = re.compile(r"^([0-9]+\/[0-9A-Z]+) ([0-9]+)\/([0-9]+) (.*) ([0-9]{2}\/[0-9]{2}\/[0-9]{4}) (.*) ([0-9]+\.?[0-9]?) (£[1-9],?[0-9]*\.[0-9]{2}) (£[1-9],?[0-9]*\.[0-9]{2}) (£[1-9],?[0-9]*\.[0-9]{2}) (£[1-9],?[0-9]*\.[0-9]{2}) [0-9\-]+ [0-9]+ (Advance Contracting Solutions Ltd)$")
+    nextLinePattern = re.compile("^([0-9]{2}\/[0-9]{2}\/[0-9]{4}) (.*) ([0-9]\.?[0-9]?) (£[0-9]+\.[0-9]{2}) (£[0-9]+\.[0-9]{2}) (£[0-9]+\.[0-9]{2}) (£[0-9]+\.[0-9]{2})$")
     for file in pertempsPath.glob("*"):
         if file.suffix in [".pdf",".PDF"]:
             pdf = pdfplumber.open(file)
             for page in pdf.pages:
                 text = page.extract_text()
-                
                 for line in text.split("\n"):
+                   
                     if newLinePattern.match(line):
-    
-                        pertempsId = re.search(newLinePattern,line).groups()
                         
-                        UF1 = pertempsId[0]
+                        groups = re.search(newLinePattern, line).groups()
                         
-                        try:
-                            branchCode = int(pertempsId[-1])
-                        except ValueError:
-                            branchCode = pertempsId[-1]
-                    try:
-                        date = re.search(datePattern,line).group(1)
-                    except AttributeError:
-                        continue
-                    
-                    nameGroup = re.findall(namePattern,line)
-                    
-                    if nameGroup:
-                        surname = nameGroup[0]
+                        branchCode = groups[1]
+                            
+                        UF1 = groups[2]
+                        names = groups[3].replace(" Pertemps Medical Ltd"," ").replace(" Ventures S/E Weekly"," ").split(" ")
+                        surname = names[0]
+                        fornames = ""
+                        for name in names[1:]:
+                            if name != " ":
+                                fornames = fornames + name + " "
+                        fornames =  fornames[:-1]
                         
-                        forenames = ""
-                        for forename in nameGroup[0:]:
-                            forenames += forename + " "
-                        forenames = forenames[:-1]
-                        forenames = forenames.replace(surname+" ","").replace("Weekly ","").replace("Ventures ","").replace(" Advance Contracting Solutions Ltd","")
+                        date = groups[4]
+                        hours = groups[6]
+                        rate = float(groups[7].replace(',','').replace(' ','').replace('£',''))
+                        value = float(groups[8].replace(',','').replace(' ','').replace('£',''))
+                        
+                        dfTemp = pd.DataFrame([[UF1, branchCode, surname, fornames, date, rate ,value]],columns = result.columns)
+                        result = pd.concat([result,dfTemp]).reset_index(drop = True)
                     
-                    values = re.findall(valuesPattern,line)
-                    rate = float(values[0].replace('£',''))
-                    value = float(values[1].replace('£',''))
-                    gross = float(values[2].replace('£',''))
-                    
-                    dfTemp = pd.DataFrame([[UF1, branchCode, surname, forenames, date, rate ,value ,gross]],columns = result.columns)
-                    result = pd.concat([result,dfTemp]).reset_index(drop = True)
+                    elif nextLinePattern.match(line):
+                        
+                        groups = re.search(nextLinePattern, line).groups()
+                        
+                        date = groups[0]
+                        hours = groups[2]
+                        rate = float(groups[3].replace(',','').replace(' ','').replace('£',''))
+                        value = float(groups[4].replace(',','').replace(' ','').replace('£',''))
+                        
+                        dfTemp = pd.DataFrame([[UF1, branchCode, surname, fornames, date, rate ,value]],columns = result.columns)
+                        result = pd.concat([result,dfTemp]).reset_index(drop = True)
     
     result["Branch Code"] = result["Branch Code"].astype(str)
     branchCodes["Branch Code"] = branchCodes["Branch Code"].astype(str)
@@ -159,25 +171,51 @@ if input("Type 'y' to merge pertemps: ") == 'y':
     
     bankStatement = pd.concat([bankStatement,pertemps]).reset_index(drop=True)
 
+print('_______________________________________________________________________')
+print('')
+print('Exporting Import and Error File...')
+print(datetime.datetime.now().time())
+
 bankStatement["Document Type"] = "JRNL"
 bankStatement["Year"] = yearFormat1
-bankStatement["Period"] = bankStatement["Date"].apply(lambda x: pd.to_datetime(x)).dt.strftime("%m")
+bankStatement["Period"] = bankStatement["Date"].apply(lambda x: str(tax_calcs().tax_month_calc(x)) if tax_calcs().tax_month_calc(x) < 10 else str(tax_calcs().tax_month_calc(x)))
 bankStatement["Nominal"] = 5310
 
-errorFile = bankStatement[bankStatement["Account"].isnull()].reset_index(drop = True)
-errorFile = errorFile.reset_index(drop = False).rename(columns={"index":"Row No"}).reindex(["Document Type","Row No","Year","Period","Date","Nominal","Account","Value","Description","UF1"])
-errorFile.to_csv(outputPath / rf"Bank Error Py {dayToday1}",index = False)
+errorFile = bankStatement[bankStatement["Account"].isnull()]
+
+for i, row in errorFile.iterrows():
+    if row["Description"] not in ["NETWORK VENTURES"]:
+        account = input(f"Enter missing account code for description; {row['Description']} (press enter to skip): ")
+        if account != "":
+            bankStatement.at[i, "Account"] = account
+            accounts = pd.concat([accounts,pd.DataFrame([[row["Description"],account]], columns = accounts.columns)])
+                                 
+errorFile = errorFile.reset_index(drop = True)
+errorFile = errorFile.reset_index(drop = False).rename(columns={"index":"Row No"}).reindex(columns = ["Document Type","Row No","Year","Period","Date","Nominal","Account","Value","Description","UF1"])
+errorFile.to_csv(outputPath / rf"Error Py {dayToday1}.csv",index = False)
 
 bankStatement = bankStatement[~bankStatement["Account"].isnull()]
+bankStatement["Value"] = bankStatement["Value"]*-1
 
-bankStatementRev = bankStatement
+bankStatementRev = bankStatement[["Document Type","Year","Period","Date","Value","Account","Description","UF1"]]
 bankStatementRev["Nominal"] = 5200
+bankStatementRev["Account"] = ""
 bankStatementRev["Value"] = bankStatementRev["Value"]*-1
 
 bankStatement = pd.concat([bankStatement, bankStatementRev]).reset_index(drop = True)
 bankStatement = bankStatement.reset_index(drop = False).rename(columns={"index":"Row No"})
 
-bankStatement = bankStatement.reindex(["Document Type","Row No","Year","Period","Date","Nominal","Account","Value","Description","UF1"])
+bankStatement["Row No"] = bankStatement["Row No"] + 1
+
+bankStatement = bankStatement.reindex(columns=["Document Type","Row No","Year","Period","Date","Nominal","Account","Value","Description","UF1"])
 
 bankStatement.to_csv(outputPath / rf"Bank Upload Py {dayToday1}.csv", index = False)
+
+accounts.to_csv(branchCodesPath / r"Accounts.csv", index = False)
+branchCodes.to_csv(branchCodesPath / r"Branch Codes.csv", index = False)
+
+print('_______________________________________________________________________')
+print('')
+print('Done.')
+
 
