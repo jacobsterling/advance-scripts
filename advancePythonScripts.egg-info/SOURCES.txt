@@ -15,8 +15,6 @@ advancePythonScripts.egg-info/top_level.txt
 rebates/JarVoucherScript.py
 rebates/Tax Rebate Booklet Reader.py
 rebates/Tax Rebate Creation Script.py
-rebates/formats.py
-rebates/functions.py
 rebates/rebates.py
 rebates/scantecRebateScript.py
 remitReaders/alexanderMannSolutionsPayrollScript.py

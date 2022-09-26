@@ -8,9 +8,9 @@ Created on Mon Jan 31 16:59:28 2022
 import pandas as pd
 from pathlib import Path
 import win32com.client as client
-from formats import taxYear 
+from utils import formats
 
-Year = taxYear().Year('-')
+Year = formats.taxYear().Year('-')
     
 Week = input('Enter Week Number: ')
 

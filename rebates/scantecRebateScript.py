@@ -12,19 +12,19 @@ import win32com.client as win32
 import xlsxwriter
 win32c = win32.constants
 from openpyxl.utils import get_column_letter
-from pathlib import Path
-from functions import tax_calcs
-from formats import taxYear
-import numpy as np
 
-Year = taxYear().Year('-')
+from utils import formats
+from utils import functions
+
+
+Year = formats.taxYear().Year('-')
 
 datetime.datetime.now().time()
     
 Year = '2022'
 
-df1_path: str = r"C:\Users\jacob.sterling\advance.online\J Drive - Exec Reports\Margins Reports\Margins 2021-2022\Margins Report 2021-2022.xlsx"
-df_path: str = r"C:\Users\jacob.sterling\advance.online\J Drive - Exec Reports\Margins Reports\Margins 2022-2023\Margins Report 2022-2023.xlsx"
+df1_path: str = r"C:\Users\jacob.sterling\advance.online\J Drive - Exec Reports\Margins Reports\Margins 2021-2022\Margins Report 21-22.xlsx"
+df_path: str = r"C:\Users\jacob.sterling\advance.online\J Drive - Exec Reports\Margins Reports\Margins 2022-2023\Margins Report 22-23.xlsx"
 #data_path = Path(r"C:\Users\jacob.sterling\OneDrive - advance.online\Documents\Data")
 
 ###########run scantec workers from CRM
@@ -44,7 +44,7 @@ df_['Client Name'] = df_['Client Name'].str.upper()
 df_ = df_[df_['Client Name'] == 'SCANTEC PERSONNEL LIMITED'].drop('Client Name',axis=1)
 df_['Date Paid'] = pd.to_datetime(df_['Date Paid'],format='%d/%m/%Y')
 
-Scantec_Workers = pd.read_csv('Scantec+Workers.csv', encoding = 'latin', na_values=["-"], skiprows=5)
+Scantec_Workers = pd.read_csv('Scantec+Workers.csv', encoding = 'latin', na_values=["-"])
 #Scantec_Workers['Full Name'] =  Scantec_Workers['Last Name']+ ' ' + Scantec_Workers['First Name'] # 'Full Name',
 Scantec_Workers = Scantec_Workers[['Consultant',"Email"]].rename(columns={'Consultant':'Consultant Name in CRM'}).dropna()#.drop_duplicates(subset = 'Full Name')
 
@@ -52,7 +52,7 @@ Scantec_Consultants = pd.read_excel('Scantec Consultants.xlsx',usecols = ['Name'
 
 df_missing_con = pd.DataFrame()
 
-for n in range(7,8,1):######################change range
+for n in range(8,9,1):######################change range
     if len(str(n)) == 1:
         month_num = '0'+ str(n)
     else:
@@ -110,13 +110,13 @@ for n in range(7,8,1):######################change range
                                     'bg_color': '#92D050',
                                     'border':1})
 
-    idx = pd.DataFrame(df['Date Paid'].unique())[0].apply(lambda x: tax_calcs().tax_week_calc(x)).sort_values()
+    idx = pd.DataFrame(df['Date Paid'].unique())[0].apply(lambda x: functions.tax_calcs().tax_week_calc(x)).sort_values()
 
     df_Totals = pd.DataFrame([],columns=['','£4.75','£3'],index=idx)
 
     for i, row in pd.DataFrame(df['Date Paid'].unique()).iterrows():
         CHQDATE = row[0]
-        Week = tax_calcs().tax_week_calc(CHQDATE)
+        Week = functions.tax_calcs().tax_week_calc(CHQDATE)
         if not Week:
             Week = 52
         str_date = CHQDATE.strftime('%d.%m')

@@ -13,18 +13,18 @@ import xlsxwriter
 win32c = win32.constants
 from openpyxl.utils import get_column_letter
 from pathlib import Path
-from functions import tax_calcs
-from formats import taxYear
+from utils import formats
+from utils import functions
 import numpy as np
 
-Year = taxYear().Year('-')
+Year = formats.taxYear().Year('-')
 
 datetime.datetime.now().time()
     
 Year = '2022'
 
-df1_path: str = r"C:\Users\jacob.sterling\advance.online\J Drive - Exec Reports\Margins Reports\Margins 2021-2022\Margins Report 2021-2022.xlsx"
-df_path: str = r"C:\Users\jacob.sterling\advance.online\J Drive - Exec Reports\Margins Reports\Margins 2022-2023\Margins Report 2022-2023.xlsx"
+df1_path: str = r"C:\Users\jacob.sterling\advance.online\J Drive - Exec Reports\Margins Reports\Margins 2021-2022\Margins Report 21-22.xlsx"
+df_path: str = r"C:\Users\jacob.sterling\advance.online\J Drive - Exec Reports\Margins Reports\Margins 2022-2023\Margins Report 22-23.xlsx"
 #data_path = Path(r"C:\Users\jacob.sterling\OneDrive - advance.online\Documents\Data")
 
 ###########run scantec workers from CRM
@@ -52,7 +52,7 @@ Scantec_Consultants = pd.read_excel('Scantec Consultants.xlsx',usecols = ['Name'
 
 df_missing_con = pd.DataFrame()
 
-for n in range(7,8,1):######################change range
+for n in range(8,9,1):######################change range
     if len(str(n)) == 1:
         month_num = '0'+ str(n)
     else:
@@ -110,13 +110,13 @@ for n in range(7,8,1):######################change range
                                     'bg_color': '#92D050',
                                     'border':1})
 
-    idx = pd.DataFrame(df['Date Paid'].unique())[0].apply(lambda x: tax_calcs().tax_week_calc(x)).sort_values()
+    idx = pd.DataFrame(df['Date Paid'].unique())[0].apply(lambda x: functions.tax_calcs().tax_week_calc(x)).sort_values()
 
     df_Totals = pd.DataFrame([],columns=['','£4.75','£3'],index=idx)
 
     for i, row in pd.DataFrame(df['Date Paid'].unique()).iterrows():
         CHQDATE = row[0]
-        Week = tax_calcs().tax_week_calc(CHQDATE)
+        Week = functions.tax_calcs().tax_week_calc(CHQDATE)
         if not Week:
             Week = 52
         str_date = CHQDATE.strftime('%d.%m')

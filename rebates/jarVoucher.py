@@ -10,14 +10,14 @@ Created on Wed May 18 10:40:54 2022
 import pandas as pd
 from pathlib import Path
 from datetime import datetime
-from formats import taxYear
+from utils import formats
 
-#1110
+#1111
 
 #grace.webber@advance.online
 #Advance2018!
 
-Year = taxYear().Year("-")
+Year = formats.taxYear().Year("-")
 
 Week = input("Enter Week to update with: ")
 
@@ -25,11 +25,11 @@ rootPath = Path.home() / rf"advance.online/J Drive - Exec Reports/Margins Report
 
 dataPath = rootPath / rf"Data/Week {Week}"
 
-reportPath = rootPath / rf"Margins Report {taxYear().Year_format1('-')}.xlsx"
+reportPath = rootPath / rf"Margins Report {formats.taxYear().Year('-')}.xlsx"
 
 previouslyPaid = pd.read_csv("Jar Voucher Paid.csv")
 
-jarOpportunites = pd.read_csv(dataPath / "Jar+Opportunities+-+Incentives.csv", skiprows=6, na_values="-")
+jarOpportunites = pd.read_csv(dataPath / "Jar+Opportunities+-+Incentives.csv", na_values="-") #, skiprows=6
 jarOpportunites["Margin Accrual"] = jarOpportunites["Margin Accrual"].fillna("0")
 
 jarOpportunites["Margin Accrual"] = jarOpportunites["Margin Accrual"].str.replace("£ ","").astype(float)
@@ -46,7 +46,6 @@ df = df[(df["CHQDATE"] >= df["Created Time"]) & (~df["PAYNO"].isin(previouslyPai
 df = df.groupby(['PAYNO']).agg({"Margins":sum, "Email":"first", "Record Id":"first"}).reset_index(drop=True)
 
 df.to_csv("Backup.csv", index=False)
-
 
 jarFeesRetained = None
 for file in dataPath.glob("*"):

@@ -32,10 +32,10 @@ def has_numbers(inputString):
 
 class tax_calcs:
     def __init__(self):
-        from formats import taxYear 
+        from utils import formats 
         import datetime as datetime
         self.datetime = datetime
-        self.taxYearRange = taxYear().Year('-')
+        self.taxYearRange = formats.taxYear().Year('-')
         self.pd = __import__('pandas')
         self.date = datetime.date
         self.timedelta = datetime.timedelta
