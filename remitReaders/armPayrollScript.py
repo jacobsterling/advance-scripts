@@ -9,7 +9,7 @@ class armPayroll:
     def __init__(self, Week = None):
         import pandas as pd
         from pathlib import Path
-        from Formats import taxYear
+        from utils.formats import taxYear
         self.pd = pd
         
         if not Week:

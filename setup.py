@@ -7,5 +7,5 @@ setup(
     author="Jacob Sterling",
     author_email="jacob.sterling@advance.online",
     packages=["utils", "reports", "remitReaders", "rebates", "MCR", "ACR", "CRMPythonSDK"],
-    install_requires=["pywin32", "pandas", "numpy", "pdfplumber", ]
+    install_requires=["pywin32", "pandas", "numpy", "pdfplumber"]
 )
