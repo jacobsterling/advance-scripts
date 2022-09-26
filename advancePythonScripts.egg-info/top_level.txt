@@ -1,7 +1,0 @@
-ACR
-CRMPythonSDK
-MCR
-rebates
-remitReaders
-reports
-utils
