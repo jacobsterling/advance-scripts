@@ -57,8 +57,8 @@ print(datetime.datetime.now().time())
 for file in branchCodesPath.glob("*"):
     if file.name.__contains__("Accounts") and file.suffix == ".csv":
         accounts = pd.read_csv(file).drop_duplicates(subset="Description")
-    if file.name.__contains__('Branch Codes') and file.suffix == ".xlsx":
-        branchCodes = pd.read_excel(file)
+    if file.name.__contains__('Branch Codes') and file.suffix == ".csv":
+        branchCodes = pd.read_csv(file)
         
 # fileC, fileCStat = None, 0
 # for file in clientsPath.glob("*"):
