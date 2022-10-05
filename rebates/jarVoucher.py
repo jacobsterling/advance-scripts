@@ -12,6 +12,7 @@ from pathlib import Path
 from datetime import datetime
 from utils import formats
 
+#1113 pasword +1
 #Advance2018!
 
 Year = formats.taxYear().Year("-")
@@ -26,9 +27,8 @@ reportPath = rootPath / rf"Margins Report {formats.taxYear().Year('-')}.xlsx"
 
 previouslyPaid = pd.read_csv("Jar Voucher Paid.csv")
 
-jarOpportunites = pd.read_csv(dataPath / "Jar+Opportunities+-+Incentives.csv", na_values="-") #, skiprows=6
+jarOpportunites = pd.read_csv(dataPath / "Jar+Opportunities+-+Incentives.csv", na_values="-", skiprows=6)
 jarOpportunites["Margin Accrual"] = jarOpportunites["Margin Accrual"].fillna("0")
-
 jarOpportunites["Margin Accrual"] = jarOpportunites["Margin Accrual"].str.replace("£ ","").astype(float)
 
 report = pd.read_excel(reportPath, sheet_name="Core Data", parse_dates=["CHQDATE"])
@@ -42,7 +42,7 @@ df = df[(df["CHQDATE"] >= df["Created Time"]) & (~df["PAYNO"].isin(previouslyPai
 
 df = df.groupby(['PAYNO']).agg({"Margins":sum, "Email":"first", "Record Id":"first"}).reset_index(drop=True)
 
-df.to_csv("Backup.csv", index=False)
+df.to_csv(rf"backup {Year}.csv", index=False)
 
 jarFeesRetained = None
 for file in dataPath.glob("*"):
@@ -84,4 +84,4 @@ crmimport.loc[ crmimport["PAYNO"].isin(previouslyPaid["PAYNO"]) & ((crmimport["S
 
 crmimport = crmimport.dropna(subset=["Record Id"])
 
-crmimport.to_csv("Voucher Opportunity Import.csv", index=False)
+crmimport.to_csv("jarImport.csv", index=False)

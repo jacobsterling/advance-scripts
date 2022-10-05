@@ -37,11 +37,10 @@ df_LAST_PAID_IO = pd.merge(fees_io, joiners_io, left_on = 'PAYNO',right_on = 'Pa
 df_LAST_PAID_AXM = pd.merge(fees_axm, joiners_axm, left_on = 'PAYNO',right_on = 'Pay No', how='left').rename(columns={'CHQDATE':'Last Paid'}).drop('Pay No',axis=1).drop_duplicates(subset=['Email Address'])
 
 for i, row in df_LAST_PAID_IO.iterrows():
-    payroll = str(row['PAYNO']) if pd.isnull(row['PAYNO']) else str(row['OFFNO']) + "*" + str(row['PAYNO'])
     if row["Solution"] == "PAYE":
-        df_LAST_PAID_IO.loc[i, "Merit Payroll Number (Umbrella IO_Database)"] = payroll
+        df_LAST_PAID_IO.loc[i, "Merit Payroll Number (Umbrella IO_Database)"] = str(row['OFFNO']) + "*" + str(row['PAYNO'])
     elif row["Solution"] in ["CIS","SE"]:
-       df_LAST_PAID_IO.loc[i, "Merit Payroll Number (Self-Employed and CIS)"] = payroll
+       df_LAST_PAID_IO.loc[i, "Merit Payroll Number (Self-Employed and CIS)"] = str(row['OFFNO']) + "*" + str(row['PAYNO'])
     else:
         raise Exception("No Solution for payno: {row['PAYNO']}")
 
@@ -75,7 +74,6 @@ import win32com.client as client
 email = client.Dispatch('Outlook.Application').CreateItem(0)
 email.To = 'enquiries@advance.online; hannah.jarvis@advance.online'
 email.CC = 'jacob.sterling@advance.online; joshua.richards@advance.online'
-#email.To = 'jacob.sterling@advance.online; joshua.richards@advance.online'
 email.Subject = ('Paid Last Week w/ Missing NI Numbers')
 
 html = """

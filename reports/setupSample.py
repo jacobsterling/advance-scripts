@@ -8,11 +8,11 @@ Created on Mon Jan 31 16:59:28 2022
 import pandas as pd
 from pathlib import Path
 import win32com.client as client
-from utils import formats
+from utils.functions import tax_calcs
+from utils.formats import taxYear
 
-Year = formats.taxYear().Year('-')
-    
-Week = input('Enter Week Number: ')
+Year = taxYear().Year('-')
+Week = tax_calcs().tax_week() - 1
 
 #run 0joiners_doj
 
@@ -20,7 +20,7 @@ df_path = Path(rf'C:\Users\jacob.sterling\advance.online\J Drive - Exec Reports\
 df_path_sample = Path(r'C:\Users\jacob.sterling\OneDrive - advance.online\Documents\Data\Last Week Setup Sample.xlsx')
 df = pd.read_csv(df_path,encoding='latin')
 
-df_sample = df[df['WS_ID_RECEIVED'] == 'Yes'].sample(n = round(len(df)*0.1))
+df_sample = df[df['WS_ID_RECEIVED'] == 'Yes'].sample(n = round(len(df)*0.2))
 df_sample.to_excel(df_path_sample,index=False)
 
 outlook = client.Dispatch('Outlook.Application')
