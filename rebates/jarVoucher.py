@@ -25,7 +25,7 @@ dataPath = rootPath / rf"Data/Week {Week}"
 
 reportPath = rootPath / rf"Margins Report {formats.taxYear().Year('-')}.xlsx"
 
-previouslyPaid = pd.read_csv("Jar Voucher Paid.csv")
+previouslyPaid = pd.read_csv("jarPaid.csv")
 
 jarOpportunites = pd.read_csv(dataPath / "Jar+Opportunities+-+Incentives.csv", na_values="-", skiprows=6)
 jarOpportunites["Margin Accrual"] = jarOpportunites["Margin Accrual"].fillna("0")

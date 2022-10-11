@@ -7,8 +7,9 @@ Created on Tue Jul 12 09:33:18 2022
 
 import pandas as pd 
 from pathlib import Path
-from utils import functions
-from utils import formats
+from utils.functions import tax_calcs
+from utils.functions import PAYNO_Check
+from utils.formats import taxYear
 from datetime import datetime
 #latestOpp["End Date"] = latestOpp["End Date"].apply(lambda x: pd.to_datetime(x)) # format="%d %b, %Y")
 
@@ -16,7 +17,7 @@ homePath = Path().home() / "advance.online"
 
 old_df_path = Path().home() / "OneDrive - advance.online/Documents/data/Expense Tracker Data.xlsx"
 
-dataPath = homePath / rf"J Drive - Exec Reports\Margins Reports\Margins {formats.taxYear().Year('-')}"
+dataPath = homePath / rf"J Drive - Exec Reports\Margins Reports\Margins {taxYear().Year('-')}"
 
 Week = input("Enter week number: ")
 
@@ -28,13 +29,13 @@ data = pd.read_excel(dataPath / rf"Margins Report 2022-2023.xlsx", sheet_name=["
 #change to 6
 #{taxYear().Year('-')}
 
-df = data["Core Data"][data["Core Data"]["Week Number"].astype(int) >= functions.tax_calcs().tax_week_calc() - 7][["Client Name","PAYNO","CHQDATE", "Type","Email", "Solution", "Solution.1"]]
+df = data["Core Data"][data["Core Data"]["Week Number"].astype(int) >= tax_calcs().tax_week() - 7][["Client Name","PAYNO","CHQDATE", "Type","Email", "Solution", "Solution.1"]]
 
 
 df = df[(df["Type"] == "Fixed Expenses") | (df["Type"] == "Mileage Only")].sort_values("CHQDATE", ascending=False).drop_duplicates(subset=["PAYNO"]).reset_index(drop=True)
 
 joiners = data["Joiners Compliance"][["Pay No", "WEEKS_PAID", "FIXED_EXPENSE_FREQ", "FIXED_EXPENSE_VALUE"]]
-joiners = joiners[joiners["Pay No"].apply(lambda x: functions.PAYNO_Check(x))]
+joiners = joiners[joiners["Pay No"].apply(lambda x: PAYNO_Check(x))]
 
 df = df.merge(joiners, left_on="PAYNO", right_on="Pay No", how="left").drop("Pay No", axis = 1)
 df = df.merge(latestOpp, left_on="Email", right_on="Email (Contact Name)", how="left").drop("Email (Contact Name)", axis = 1)

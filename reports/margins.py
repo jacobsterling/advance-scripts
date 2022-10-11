@@ -18,7 +18,7 @@ dataPath = marginsPath / rf"Data/Week {week - 1}"
 
 marginsReport = pd.read_excel(marginsPath / rf"Margins Report 2022-2023.xlsx", sheet_name=['Core Data', "Accounts 2", "Clients"])
 
-core_accounts = ["Martin Brown", "Gerry Hunniset", "Adam Shaw", "Sam Amos", "Dave Levenston"]
+core_accounts = ["Martin Brown", "Gerry Hunnisett", "Adam Shaw", "Sam Amos", "Dave Levenston"]
 
 accounts = marginsReport["Accounts 2"][["Office Number", "Account Owner"]]
 accounts = accounts.dropna(subset=['Office Number'])
@@ -36,40 +36,43 @@ clients.drop_duplicates(subset ="Client Name",
 
 prevWeek = core[(core["Week Number"] == week - 1) & (core["Margins"] > 0)]
 
-prevPivot = pd.pivot_table(data= prevWeek, values="Margins", index="Client Name", aggfunc={"Margins": len}).rename(columns={"Margins": "Prev Week"}).reset_index()
+prevPivot = pd.pivot_table(data= prevWeek, values="Margins", index=["CRM", "Client Name"], aggfunc={"Margins": len}).rename(columns={"Margins": "Prev Week"}).reset_index()
+
+prevWeek = prevWeek[prevWeek['PAYNO'].apply(lambda x: PAYNO_Check(x))]
+prevWeek['PAYNO'] = prevWeek['PAYNO'].astype(int)
 
 date = tax_calcs().chqdate(week)
 
-joiners_io = pd.read_csv(homePath / "J Drive - Operations/Reports/MCR/Joiners Error Report.csv", encoding="latin")
-joiners_io = joiners_io[joiners_io['Pay No'].apply(lambda x: PAYNO_Check(x)) == True]
-joiners_io['Pay No'] = joiners_io['Pay No'].astype(int)
+# joiners_io = pd.read_csv(homePath / "J Drive - Operations/Reports/MCR/Joiners Error Report.csv", encoding="latin")
+# joiners_io = joiners_io[joiners_io['Pay No'].apply(lambda x: PAYNO_Check(x)) == True]
+# joiners_io['Pay No'] = joiners_io['Pay No'].astype(int)
 
-joiners_axm = pd.read_csv(dataPath / "Joiners Error Report axm.csv", encoding="latin")
-joiners_axm = joiners_axm[joiners_axm['Pay No'].apply(lambda x: PAYNO_Check(x)) == True]
-joiners_axm['Pay No'] = joiners_axm['Pay No'].astype(int)
+# joiners_axm = pd.read_csv(dataPath / "Joiners Error Report axm.csv", encoding="latin")
+# joiners_axm = joiners_axm[joiners_axm['Pay No'].apply(lambda x: PAYNO_Check(x)) == True]
+# joiners_axm['Pay No'] = joiners_axm['Pay No'].astype(int)
 
-joiners_paye = pd.read_csv(dataPath / "Joiners Error Report paye.csv", encoding="latin")
-joiners_paye = joiners_paye[joiners_paye['Pay No'].apply(lambda x: PAYNO_Check(x)) == True]
-joiners_paye['Pay No'] = joiners_paye['Pay No'].astype(int)
+# joiners_paye = pd.read_csv(dataPath / "Joiners Error Report paye.csv", encoding="latin")
+# joiners_paye = joiners_paye[joiners_paye['Pay No'].apply(lambda x: PAYNO_Check(x)) == True]
+# joiners_paye['Pay No'] = joiners_paye['Pay No'].astype(int)
 
-io = pd.read_csv("margins.csv").merge(joiners_io, left_on = 'PAYNO',right_on = 'Pay No', how='left')
-axm = pd.read_csv("margins axm.csv").merge(joiners_axm, left_on = 'PAYNO',right_on = 'Pay No', how='left')
-paye = pd.read_csv("margins paye.csv").drop_duplicates(subset=["PAYNO"]).reset_index(drop=True).merge(joiners_paye, left_on = 'PAYNO',right_on = 'Pay No', how='left')
+io = pd.read_csv("margins.csv")#.merge(joiners_io, left_on = 'PAYNO',right_on = 'Pay No', how='left')
+axm = pd.read_csv("margins axm.csv")#.merge(joiners_axm, left_on = 'PAYNO',right_on = 'Pay No', how='left')
+paye = pd.read_csv("margins paye.csv").drop_duplicates(subset=["PAYNO"]).reset_index(drop=True)#.merge(joiners_paye, left_on = 'PAYNO',right_on = 'Pay No', how='left')
 
 margins = pd.concat([io, axm, paye])
+margins = margins[(margins['PAYNO'].apply(lambda x: PAYNO_Check(x))) & (margins["MANAGEMENT FEE"] > 0)]
+margins['PAYNO'] = margins['PAYNO'].astype(int)
 
-margins = margins[margins["MANAGEMENT FEE"] > 0]
+# margins["Solution"] = margins["TYPE"]
+# margins.loc[margins["Type"] == "Under SDC", "Solution"] = "Umbrella"
+# margins.loc[(margins["Type"] == "Not Under SDC") & (margins["TYPE"] == "PAYE"), "Solution"] = "Umbrella"
 
-margins["Solution"] = margins["TYPE"]
-margins.loc[margins["Type"] == "Under SDC", "Solution"] = "Umbrella"
-margins.loc[(margins["Type"] == "Not Under SDC") & (margins["TYPE"] == "PAYE"), "Solution"] = "Umbrella"
-
-missingWorkers = prevWeek[~prevWeek["PAYNO"].isin(margins["PAYNO"])][["Client Name", "PAYNO","Surname","Forename","Solution.1","CRM"]].fillna('')
-missingAgencies = prevWeek[~prevWeek["Client Name"].isin(margins["COMPNAME"])][["Client Name", "CRM"]].drop_duplicates(subset="Client Name").fillna('')
+missingWorkers = prevWeek[~prevWeek["PAYNO"].isin(margins["PAYNO"].unique())][["Client Name", "PAYNO","Surname","Forename","Solution.1","CRM"]].drop_duplicates(subset="PAYNO").reset_index(drop=True).fillna('')
+missingAgencies = prevPivot[~prevPivot["Client Name"].isin(margins["COMPNAME"].unique())][["Client Name", "CRM"]].drop_duplicates(subset="Client Name").reset_index(drop=True).fillna('')
 
 pivot = pd.pivot_table(data= margins, values="MANAGEMENT FEE", index="COMPNAME", aggfunc={"MANAGEMENT FEE": len}).reset_index().rename(columns={"MANAGEMENT FEE": "Total", "COMPNAME": "Client Name"})
 
-pivot = pivot.merge(prevPivot, how="left")
+pivot = pivot.merge(prevPivot, how="left").drop(columns = ["CRM"])
 
 pivot["Difference"] = pivot["Total"] - pivot["Prev Week"]
 
