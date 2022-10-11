@@ -79,20 +79,17 @@ class rebates:
         
         for i, row in self.margins.iterrows():
             
-            value = None
-            margin = float(row["Margins"])
+            margin, value = float(row["Margins"]), None
             
-            if row["PAYNO"] not in self.exceptions["PAYNO"]:
+            if row["PAYNO"] not in self.exceptions["PAYNO"].values and row["Client Name"] not in self.exceptions["Client Name"]:
                 if row["Client Name"] in ["CORRIE", "MASTER PEACE RECRUITMENT"] and self.pd.isnull(row["PAYNO"]):
                     value = float(self.paye.loc[row["Week Number"] - 1, "Rebate"]) if row["Client Name"] == "CORRIE" else 0 # or rebate * count of ?? masterpiece
                     
-                elif not self.pd.isnull(self.margins.at[i, "Rebate Conditions"]):
+                elif not self.pd.isnull(row["Rebate Conditions"]):
                     for condition in condition_match.finditer(row["Rebate Conditions"]):
-                        group = condition.groups()
+                        group, v = condition.groups(), None
                         
                         if group[3]:
-                            v = None
-                            
                             if group[3].__contains__("x"):
                                 try:
                                     if group[3].__contains__("/"):
@@ -166,17 +163,13 @@ class rebates:
                                         format_error(group, "unmanaged operator")
                         else:
                             format_error(group, "no rebate value")
-                
-                self.margins.at[i, "Rebate"] = value if value else 0
-            else:
-                if row["PAYNO"] in self.exceptions["PAYNO"] and row["Client Name"] in self.exceptions["Client Name"]:
-                    print(row["PAYNO"])
-                self.margins.at[i, "Rebate"] = 0
+            self.margins.at[i, "Rebate"] = value if value else 0
         self.export()
         
     def export(self):
         import numpy as np
         from utils.functions import tax_calcs
+    
         
         max = self.pd.to_datetime(str(np.max(self.chqdates)))
         min = self.pd.to_datetime(str(np.min(self.chqdates)))
@@ -193,6 +186,8 @@ class rebates:
         self.margins["Average Margin"] = self.margins['Margins']
         
         self.margins.loc[self.margins["Average Margin"] <= 0, "Average Margin"] = np.nan
+        
+        self.margins["CHQDATE"] = self.margins["CHQDATE"].apply(lambda x: x.strftime(format="%d/%m/%Y"))
         
         rebates = self.pd.pivot_table(self.margins[~self.margins["Account Name"].isna()], columns = ["CHQDATE"], values=['Rebate', 'Margins'], index=['Group Name', "Client Name"], aggfunc={'Margins': np.sum,'Rebate': np.sum}, fill_value=0, margins = True)
         
@@ -219,28 +214,28 @@ class rebates:
             ws.set_column('C:N', 12, money_fmt)
         writer.save()
 
-        self.margins["Group Sum"] = self.margins["Rebate"]*1.2
-        upload = self.pd.pivot_table(self.margins[~self.margins["Account Name"].isna()], values=['Group Sum', 'Count of'], index=["Group Name", "Account No", "Account Name"], aggfunc={'Group Sum': np.sum, 'Count of': np.sum}, fill_value=0).reset_index()
+        upload = self.pd.pivot_table(self.margins[(~self.margins["Account Name"].isna()) & (self.margins["Rebate"] > 0)], values=['Rebate', 'Count of'], index=["Account Name", "Account No", "Group Name"], aggfunc={'Rebate': np.sum, 'Count of': np.sum}, fill_value=0).reset_index().rename(columns={"Rebate": 'Group Sum'})
         
         upload["Month"] = month
         
         upload["Rebate end week"] = max.strftime("%d/%m/%Y")
         
-        upload['Group Sum'] = upload['Group Sum'].round(decimals=2)
+        upload["Group Sum"] = upload["Group Sum"].map('£{:,.2f}'.format)
         
-        upload["Period"] = str(period) if period < 10 else "0" + str(period)
-        
-        psfUpload = upload.rename(columns={"Account No": "Account Code", "Group Name": "Merit Name", "Rebate end week":"Date to Accrue for"}).drop(columns=["Account Name", 'Count of'])
+        psfUpload = upload.rename(columns={"Account No": "Account Code", "Group Name": "Merit Name", "Rebate end week":"Date to Accrue for"}).drop(columns=['Count of', "Account Name"]).reindex(columns=["Merit Name","Group Sum","Account Code", "Month", "Date to Accrue for"])
 
+        psfUpload["Period"] = "'" + str(period) if period > 9 else "'0" + str(period)
+        
         psfUpload["Year"] = self.yearAbbr.replace("-", "/")
          
-        psfUpload.to_csv(rebateDir / rf"{month} py Rebates {self.yearAbbr} - psf import.csv", index=False)
+        psfUpload.to_csv(rebateDir / rf"{month} py Rebates {self.yearAbbr} - psf import.csv", index=False, encoding="latin")
         
-        crmUpload = upload.rename(columns={"Account Name": "CRM Name", 'Count of': "Total Margins", "Group Sum":"Total Amount"}).drop(columns=["Account No", "Group Name"])
+        UPLOAD_EXCEPTIONS = ["Advanced Resource Managers", "Search Consultancy Manchester","NRL Glasgow","Scantec Personnel Ltd", "Manpower", "Rullion Build Glasgow"]
+        
+        crmUpload = upload[~upload["Account Name"].isin(UPLOAD_EXCEPTIONS)].rename(columns={"Account Name": "CRM Name", 'Count of': "Total Margins", "Group Sum": "Total Amount"}).drop(columns=["Account No", "Group Name"])
         
         crmUpload["Rebate start week"] = min.strftime("%d/%m/%Y")
         
         crmUpload.to_csv(rebateDir / rf"{month} py Rebates {self.yearAbbr} - crm import.csv", index=False)
-    
         
 rebates().run()
