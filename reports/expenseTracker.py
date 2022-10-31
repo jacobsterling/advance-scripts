@@ -5,12 +5,13 @@ Created on Tue Jul 12 09:33:18 2022
 @author: jacob.sterling
 """
 
-import pandas as pd 
-from pathlib import Path
-from utils.functions import tax_calcs
-from utils.functions import PAYNO_Check
-from utils.formats import taxYear
 from datetime import datetime
+from pathlib import Path
+
+import pandas as pd
+from utils.formats import taxYear
+from utils.functions import PAYNO_Check, tax_calcs
+
 #latestOpp["End Date"] = latestOpp["End Date"].apply(lambda x: pd.to_datetime(x)) # format="%d %b, %Y")
 
 homePath = Path().home() / "advance.online"
@@ -26,13 +27,11 @@ latestOpp = pd.read_csv(dataPath / rf"Data/Week {Week}/Expense+Tracker.csv", par
 latestOpp.loc[latestOpp["Start Date on Site"].isna(), "Start Date on Site"] = latestOpp.loc[latestOpp["Start Date on Site"].isna(), "Latest Start Date on Site"]
 
 data = pd.read_excel(dataPath / rf"Margins Report 2022-2023.xlsx", sheet_name=["Core Data", "Joiners Compliance"])
-#change to 6
-#{taxYear().Year('-')}
 
-df = data["Core Data"][data["Core Data"]["Week Number"].astype(int) >= tax_calcs().tax_week() - 7][["Client Name","PAYNO","CHQDATE", "Type","Email", "Solution", "Solution.1"]]
+df = data["Core Data"][data["Core Data"]["Week Number"].astype(int) >= int(Week) - 7][["Client Name","PAYNO","CHQDATE", "Type","Email", "Solution", "Solution.1"]]
 
 
-df = df[(df["Type"] == "Fixed Expenses") | (df["Type"] == "Mileage Only")].sort_values("CHQDATE", ascending=False).drop_duplicates(subset=["PAYNO"]).reset_index(drop=True)
+df = df[(df["Type"] == "Fixed Expenses") | (df["Type"] == "Mileage Only")].sort_values("CHQDATE", ascending=False).drop_duplicates(subset=["PAYNO"], keep="last").reset_index(drop=True)
 
 joiners = data["Joiners Compliance"][["Pay No", "WEEKS_PAID", "FIXED_EXPENSE_FREQ", "FIXED_EXPENSE_VALUE"]]
 joiners = joiners[joiners["Pay No"].apply(lambda x: PAYNO_Check(x))]
@@ -42,22 +41,28 @@ df = df.merge(latestOpp, left_on="Email", right_on="Email (Contact Name)", how="
 
 df_1 = df[df["Start Date on Site"] + pd.to_timedelta(2*365, unit='d') < datetime.now()]
 
-old_df = pd.read_excel(old_df_path, sheet_name="Sheet1")
+old_df = pd.read_excel(old_df_path, sheet_name="24 Months")
 
 new = df_1[~df_1["PAYNO"].isin(old_df["PAYNO"])]
 
 with pd.ExcelWriter(old_df_path) as writer:
-    df_1.to_excel(writer, index= False)
+    df_1.to_excel(writer, index= False, sheet_name="24 Months")
     df.to_excel(writer, sheet_name="Data", index= False)
 
 writer.save()
 
 import win32com.client as client
+
 outlook = client.Dispatch('Outlook.Application')
 email = outlook.CreateItem(0)
 email.To = "joshua.richards@advance.online"
 email.Subject = ('Expense Tracker')
-email.HTMLBody = rf"{new.to_html(index=False)}"
+email.HTMLBody = rf"""
+New Workers To The Report
+<br>
+{
+    new.to_html(index=False)
+}"""
 email.Attachments.Add(str(old_df_path))
 email.Display(True)
-email.Send()
+#email.Send()

@@ -4,7 +4,7 @@ from pathlib import Path
 
 outlook = client.Dispatch('Outlook.Application')
 
-pop = "batch 2.csv"
+pop = "batch 4.csv"
 
 receivers = pd.read_csv(pop)
 

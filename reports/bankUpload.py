@@ -35,7 +35,7 @@ Year = taxYear().Year(" - ")
 
 yearFormat1 = taxYear().Year_format1("/")
 
-Week = tax_calcs().tax_week_calc() - 1
+Week = tax_calcs().tax_week() - 1
 
 pertempsPath = Path.home() / rf"advance.online/J Drive - Operations/Remittances and invoices/Pertemps/Tax Year {Year}/Week {Week}"
 
@@ -90,7 +90,7 @@ if bankStatement["Description"].str.contains("ADVANCED RESOURCE").any() or bankS
 
 for i, row in bankStatement.iterrows():
     date = pd.to_datetime(row["Date"], format="%d/%m/%Y")
-    week = tax_calcs().tax_week_calc(date)
+    week = tax_calcs().tax_week(date)
     if row["Description"] in ["ADVANCED RESOURCE","OPTAMOR LIMITED"]:
         for j, ref in df.iterrows():
             if str(row["UF1"]) == str(ref["Remittance Ref"]):
@@ -176,9 +176,13 @@ print('')
 print('Exporting Import and Error File...')
 print(datetime.datetime.now().time())
 
+tax_map = tax_calcs().tax_week_map()
+
+tax_map["Fiscal Period"] = tax_map["Fiscal Period"].apply(lambda x: "'0" + str(x) if x < 10 else str(x))
+
 bankStatement["Document Type"] = "JRNL"
 bankStatement["Year"] = yearFormat1
-bankStatement["Period"] = bankStatement["Date"].apply(lambda x: str(tax_calcs().tax_month_calc(x)) if tax_calcs().tax_month_calc(x) < 10 else str(tax_calcs().tax_month_calc(x)))
+bankStatement["Period"] = bankStatement["Date"].apply(lambda x: tax_map.loc[(tax_map['RangeS'].dt.date <= pd.to_datetime(x)) & (tax_map['RangeE'].dt.date >= pd.to_datetime(x)), 'Fiscal Period'].values[0])
 bankStatement["Nominal"] = 5310
 
 errorFile = bankStatement[bankStatement["Account"].isnull()]
