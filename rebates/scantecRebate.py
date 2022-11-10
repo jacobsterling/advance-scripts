@@ -30,7 +30,7 @@ rebatesPath = homePath / rf"J Drive - Finance/Rebates Reports/Rebates {yearAbbr}
 rebates = pd.read_excel(rebatesPath / rf"{month} py Rebates {yearAbbr}.xlsx", sheet_name= 'Core Data',usecols = ['Client Name','Surname','Forename','Margins','CHQDATE',"Email"]).rename(columns={'CHQDATE':'Date Paid','Margins':'Margin'})
 rebates = rebates[(rebates['Margin'] > 0) & (rebates['Client Name'] == 'SCANTEC PERSONNEL LIMITED')].drop('Client Name',axis=1)
 
-workers = pd.read_csv('Scantec+Workers.csv', encoding = 'latin', na_values=["-"], usecols=['Consultant',"Email"], skiprows=6).rename(columns={'Consultant':'Consultant Name in CRM'}).dropna()
+workers = pd.read_csv('Scantec+Workers.csv', encoding = 'latin', na_values=["-"], usecols=['Consultant',"Email"]).rename(columns={'Consultant':'Consultant Name in CRM'}).dropna()
 
 consultants = pd.read_excel('scantecConsultants.xlsx')
 
@@ -49,9 +49,9 @@ if len(missingConsultant) > 0:
         if len(consultant) > 0:
             consultant = consultant.values[0]
         else:
-            consultant = input("Enter consultant for worker {row['Forename'] + ' ' + row['Surname']}: ")
+            consultant = input(rf"Enter consultant for worker {row['Forename'] + ' ' + row['Surname']}: ")
             row['Consultant Name in CRM'] = consultant
-            pd.concat([knownMissing, row])
+            knownMissing = pd.concat([knownMissing, row])
         
         if not pd.isnull(consultant): 
             code = consultants.loc[consultants['Name'] == consultant, 'Consultant_Code'].values[0]
@@ -108,15 +108,14 @@ totals = pd.DataFrame([],columns=['','£4.75','£3'],index=pd.DataFrame(chqdates
 print(totals)
 
 for chqdate in chqdates:
+    df = rebates[rebates['Date Paid'] == chqdate].reset_index(drop = True)
+    df['Margin'] = 1
+    
     chqdate = pd.to_datetime(chqdate)
     date = chqdate.strftime('%d.%m')
     week = tax_calcs().tax_week(chqdate)
     ws = wb.add_worksheet(f'Week {week} {date}')
-
-    df = rebates[rebates['Date Paid'] == chqdate].reset_index(drop = True)
-    df['Margin'] = 1
-    df['Date Paid'] = chqdate.strftime('%d/%m/%Y')
-
+    
     totals.at[week,''] = len(df)
     totals.at[week,'£4.75'] = len(df)*4.75
     totals.at[week,'£3'] = 0
@@ -150,6 +149,7 @@ ws.write('D14',sum(totals['£4.75']), currencyTotals)
 ws.write('E14',sum(totals['£3']), currencyTotals)
 ws.write('C17','Total', cellTotals)
 ws.write('D17',sum(totals['£4.75'])+sum(totals['£3']), currencyTotals)
+ws.write('E17',sum(totals['£3']), currencyTotals)
 
 ws.write('D7','£4.75',cellColumn)
 ws.write('E7','£3.00',cellColumn)

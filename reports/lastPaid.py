@@ -26,13 +26,13 @@ fees_axm = pd.read_csv(dataPath / "fees retained axm.csv",usecols=['Client Name'
 fees_axm['PAYNO'] = fees_axm['PAYNO'].astype(int)
 fees_axm = fees_axm.drop_duplicates(subset='PAYNO')
 
-joiners_io  = pd.read_csv(dataPath / "Joiners Error Report io.csv",usecols=['OFFNO','Pay No','Email Address','WEEKS_PAID','NI_NO','Date of Birth',"Sdc Option"], encoding = 'latin')
+joiners_io  = pd.read_csv(dataPath / "Joiners Error Report io.csv",usecols=['OFFNO','Pay No','Email Address','WEEKS_PAID','NI_NO','Date of Birth',"Sdc Option", "Nationality"], encoding = 'latin')
 joiners_io = joiners_io[joiners_io['Pay No'].apply(lambda x: PAYNO_Check(x)) == True]
 joiners_io['Pay No'] = joiners_io['Pay No'].astype(int)
 joiners_io['OFFNO'] = joiners_io['OFFNO'].astype(str)
 
 
-joiners_axm  = pd.read_csv(dataPath / "Joiners Error Report axm.csv",usecols=['OFFNO','Pay No','Email Address','WEEKS_PAID','NI_NO','Date of Birth'], encoding = 'latin')
+joiners_axm  = pd.read_csv(dataPath / "Joiners Error Report axm.csv",usecols=['OFFNO','Pay No','Email Address','WEEKS_PAID','NI_NO','Date of Birth', "Nationality"], encoding = 'latin')
 joiners_axm = joiners_axm[joiners_axm['Pay No'].apply(lambda x: PAYNO_Check(x)) == True]
 joiners_axm['Pay No'] = joiners_axm['Pay No'].astype(int)
 joiners_axm['OFFNO'] = joiners_axm['OFFNO'].astype(str)
@@ -57,10 +57,14 @@ unmerged = last_paid[last_paid['Email Address'].isna()].reset_index(drop=True)
 
 missingNI = last_paid[last_paid['NI_NO'].isna()].reset_index(drop=True)
 
-under18 = last_paid[last_paid['Date of Birth'].apply(age) < 18]
+under18 = last_paid[last_paid['Date of Birth'].apply(age) < 18].reset_index(drop=True)
 
-last_paid_io = last_paid_io.drop(columns = ["NI_NO", "Date of Birth", "Sdc Option"])
-last_paid_axm = last_paid_axm.drop(columns = ["NI_NO", "Date of Birth"])
+nonUkNationality = last_paid[~last_paid['Nationality'].isin(["British", "British (EU)", "BRITISH", "Scottish", "Welsh", "Scottish (EU)", "Welsh (EU)","English (EU)", "British "])].reset_index(drop=True)
+
+nonUkNationality.to_csv("Non Uk Nationality.csv", index = False)
+
+last_paid_io = last_paid_io.drop(columns = ["NI_NO", "Date of Birth", "Sdc Option", "Nationality"])
+last_paid_axm = last_paid_axm.drop(columns = ["NI_NO", "Date of Birth", "Nationality"])
 
 for i, item in last_paid_io.iterrows():
     count = str(item['WEEKS_PAID']).count(',') + 1
@@ -74,7 +78,8 @@ last_paid_io.to_csv('last paid io.csv', encoding='utf-8', index=False)
 last_paid_axm.to_csv('last paid axm.csv', encoding='utf-8',index=False)
 
 import win32com.client as client
-email = client.Dispatch('Outlook.Application').CreateItem(0)
+outlook = client.Dispatch('Outlook.Application')
+email = outlook.CreateItem(0)
 email.To = 'enquiries@advance.online; hannah.jarvis@advance.online'
 email.CC = 'jacob.sterling@advance.online; joshua.richards@advance.online'
 email.Subject = ('Paid Last Week - Enquiries Checks')
@@ -95,7 +100,33 @@ html = """
     </div>
 """
 
+email.Attachments.Add(Source = str(Path().absolute() / "Non Uk Nationality.csv"))
 email.HTMLBody = html.format(table1 = missingNI.to_html(index=False), table2 = under18.to_html(index=False))
 email.Send()
 
+sample_path = Path(r'C:\Users\jacob.sterling\OneDrive - advance.online\Documents\Data\Last Week Setup Sample.xlsx')
+df = pd.read_csv(dataPath / "Last Week Setup.csv", encoding='latin')
 
+df_sample = df[df['WS_ID_RECEIVED'] == 'Yes'].sample(n = round(len(df)*0.1))
+df_sample.to_excel(sample_path,index=False)
+
+email = outlook.CreateItem(0)
+email.To = 'hannah.jarvis@advance.online'
+email.CC = 'jacob.sterling@advance.online; joshua.richards@advance.online'
+email.Subject = ('Random Sample of Last Weeks Setups for Audit')
+
+html = """
+    </div>
+    <div>
+        <b> 10% of Last Weeks Setups with RTW checked <b><br><br>
+    </div>
+    <div>
+        {table1}<br><br><br>
+    </div>
+"""
+
+email.Attachments.Add(Source=str(sample_path))
+
+email.HTMLBody = html.format(table1 = df_sample.to_html(index=False))
+
+email.Display()

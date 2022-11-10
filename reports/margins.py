@@ -20,13 +20,17 @@ dataPath = marginsPath / rf"Data/Week {week - 1}"
 
 marginsReport = pd.read_excel(marginsPath / rf"Margins Report 2022-2023.xlsx", sheet_name=['Core Data', "Accounts 2", "Clients"])
 
+joiners  = pd.read_csv(Path.home() / "advance.online/J Drive - Operations/Reports/MCR/Joiners Error Report.csv",usecols=['Pay No',"Email Address", "MOBILE", "Sdc Option"], encoding = 'latin', low_memory=False)
+
+joiners = joiners[joiners["Pay No"].apply(lambda x: PAYNO_Check(x))].drop_duplicates(subset=["Pay No"])
+joiners['Pay No'] = joiners['Pay No'].astype(int)
+
 core_accounts = ["Martin Brown", "Gerry Hunnisett", "Adam Shaw", "Sam Amos", "Dave Levenston"]
 
 accounts = marginsReport["Accounts 2"][["Office Number", "Account Owner"]]
 accounts = accounts.dropna(subset=['Office Number'])
 accounts['Office Number'] = accounts['Office Number'].astype(int)
 accounts = accounts.drop_duplicates(subset=['Office Number'], keep='first')
-accounts.loc[~accounts["Account Owner"].isin(core_accounts), "Account Owner"] = "Unmanned Account"
 
 core = marginsReport["Core Data"]
 
@@ -37,36 +41,45 @@ clients.drop_duplicates(subset ="Client Name",
                         keep = "last", inplace = True)
 
 prevWeek = core[(core["Week Number"] == week - 1) & (core["Margins"] > 0)]
+prevWeek.loc[~prevWeek["CRM"].isin(core_accounts), "CRM"] = "Unmanned Account"
 
-prevPivot = pd.pivot_table(data= prevWeek, values="Margins", index=["CRM", "Client Name"], aggfunc={"Margins": len}).rename(columns={"Margins": "Prev Week"}).reset_index()
+prevPivot = pd.pivot_table(data= prevWeek, values="Margins", index=["CRM","Client Name"], aggfunc={"Margins": len}).rename(columns={"Margins": "Prev Week"}).reset_index()
 
 prevWeek = prevWeek[prevWeek['PAYNO'].apply(lambda x: PAYNO_Check(x))]
 prevWeek['PAYNO'] = prevWeek['PAYNO'].astype(int)
 
 date = tax_calcs().chqdate(week)
 
-io = pd.read_csv("margins.csv")
-axm = pd.read_csv("margins axm.csv")
-paye = pd.read_csv("margins paye.csv")
+io = pd.read_csv("margins.csv",encoding = 'latin')
+axm = pd.read_csv("margins axm.csv",encoding = 'latin')
+paye = pd.read_csv("margins paye.csv",encoding = 'latin')
 
 paye.loc[paye["FREQ"] == "W", "MANAGEMENT FEE"] = 1
 
-margins = pd.concat([io, axm, paye])
+margins = pd.concat([io, axm, paye]).rename(columns={"COMPNAME": "Client Name"})
 margins = margins[(margins['PAYNO'].apply(lambda x: PAYNO_Check(x))) & (margins["MANAGEMENT FEE"] > 0)]
 margins['PAYNO'] = margins['PAYNO'].astype(int)
 
-missingWorkers = prevWeek[~prevWeek["PAYNO"].isin(margins["PAYNO"].unique())][["Client Name", "PAYNO","Surname","Forename","Solution.1","CRM"]].drop_duplicates(subset="PAYNO").reset_index(drop=True).fillna('')
-missingAgencies = prevPivot[~prevPivot["Client Name"].isin(margins["COMPNAME"].unique())][["Client Name", "CRM"]].drop_duplicates(subset="Client Name").reset_index(drop=True).fillna('')
+margins = margins.merge(joiners, how = "left", left_on="PAYNO", right_on="Pay No").drop(columns = "Pay No").merge(clients, how="left").merge(accounts, left_on="OFFNO", right_on="Office Number", how="left").drop(columns=["OFFNO", "Office Number"])
 
-pivot = pd.pivot_table(data= margins, values="MANAGEMENT FEE", index="COMPNAME", aggfunc={"MANAGEMENT FEE": len}).reset_index().rename(columns={"MANAGEMENT FEE": "Total", "COMPNAME": "Client Name"})
+margins.loc[~margins["Account Owner"].isin(core_accounts), "Account Owner"] = "Unmanned Account"
 
-pivot = pivot.merge(prevPivot, how="left").drop(columns = ["CRM"])
+margins["Solution"] = "Umbrella"
+
+margins.loc[ margins["Sdc Option"] == "Mileage Only", "Solution"] = "Umbrella with Mileage"
+margins.loc[ margins["Sdc Option"] == "Fixed Expenses", "Solution"] = "Umbrella with Expenses"
+margins.loc[ margins["TYPE"] == "CIS", "Solution"] = "CIS"
+
+missingWorkers = prevWeek[~prevWeek["PAYNO"].isin(margins["PAYNO"].unique())][["Client Name", "PAYNO","Surname","Forename","Solution.1"]].drop_duplicates(subset="PAYNO").reset_index(drop=True).fillna('')
+missingAgencies = prevPivot[~prevPivot["Client Name"].isin(margins["Client Name"].unique())][["Client Name"]].drop_duplicates(subset="Client Name").reset_index(drop=True).fillna('')
+
+pivot = pd.pivot_table(data= margins, values="MANAGEMENT FEE", index=["Account Owner", "Client Name"], aggfunc={"MANAGEMENT FEE": len}).reset_index().rename(columns={"MANAGEMENT FEE": "Total"}).merge(prevPivot, how="outer", left_on="Client Name", right_on="Client Name")
+
+pivot.loc[pivot["Account Owner"].isna(), "Account Owner"] = pivot.loc[pivot["Account Owner"].isna(), "CRM"]
+
+pivot = pivot.drop(columns = "CRM").fillna(0).sort_values("Account Owner")
 
 pivot["Difference"] = pivot["Total"] - pivot["Prev Week"]
-
-pivot = pivot.merge(clients, how="left")
-
-pivot = pivot.merge(accounts, left_on="OFFNO", right_on="Office Number", how="left").drop(columns=["OFFNO", "Office Number"])
 
 pivot.loc[len(pivot)] = pivot.sum(numeric_only=True)
 
@@ -74,7 +87,7 @@ pivot.at[len(pivot) - 1, "Client Name"] = "Total"
 
 marginsTotal = round(pivot.at[len(pivot) - 1, "Total"])
 
-pivot = pivot.fillna('')
+pivot = pivot.fillna("")
 
 wb = xlsxwriter.Workbook("margins.xlsx")
 
@@ -139,6 +152,23 @@ for j, column in enumerate(missingAgencies.columns.values):
     ws.set_column(f'{get_column_letter(j + 1)}:{get_column_letter(j + 1)}', 15)
         
 for i, row in missingAgencies.iterrows():
+    j = 0
+    for item in row:
+        REF = f'{get_column_letter(j + 1)}{i + 2}'
+        ws.write(REF,item)
+        j += 1
+        
+ws = wb.add_worksheet('Workers Paid')
+
+margins = margins[["Account Owner","Client Name","PAYNO","FIRSTNAME", "LASTNAME","MOBILE","Email Address","TOTHRS", "TOTPAY", "Basic", "Solution"]].fillna('')
+
+for j, column in enumerate(margins.columns.values):
+    rowend = len(margins)+1
+    REF = f'{get_column_letter(j + 1)}{1}'
+    ws.write(REF,column,cell_format_column)
+    ws.set_column(f'{get_column_letter(j + 1)}:{get_column_letter(j + 1)}', 15)
+        
+for i, row in margins.iterrows():
     j = 0
     for item in row:
         REF = f'{get_column_letter(j + 1)}{i + 2}'

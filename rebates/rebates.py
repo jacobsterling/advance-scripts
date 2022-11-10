@@ -10,10 +10,11 @@ Created on Tue Aug  9 12:59:59 2022
                 
 class rebates:
     def __init__(self):
-        from pathlib import Path
-        from utils.formats import taxYear
-        from utils import functions
         import datetime
+        from pathlib import Path
+
+        from utils import functions
+        from utils.formats import taxYear
         self.datetime = datetime.datetime
         
         self.pd = __import__('pandas')
