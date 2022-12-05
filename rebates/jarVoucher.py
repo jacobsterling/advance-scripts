@@ -7,17 +7,17 @@ Created on Wed May 18 10:40:54 2022
 
 #run Jar Opportunities - Incentives
 
-import pandas as pd
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
+
+import pandas as pd
 from utils import formats
 
-#1116
-#Advance2018!
+#1117
 
 Year = formats.taxYear().Year("-")
 
-Week = input("Enter Week to update with: ")
+Week = int(input("Enter Week to update with: "))
 
 rootPath = Path.home() / rf"advance.online/J Drive - Exec Reports/Margins Reports/Margins {Year}"
 
@@ -34,9 +34,12 @@ jarOpportunites["Margin Accrual"] = jarOpportunites["Margin Accrual"].str.replac
 report = pd.read_excel(reportPath, sheet_name="Core Data", parse_dates=["CHQDATE"])
 report = report[report["Client Name"] == "JAR SOLUTIONS"]
 
-latestOpp = pd.read_csv(dataPath / "Expense+Tracker.csv", parse_dates=["Created Time", "Start Date on Site", "End Date", "Latest Start Date on Site", "Date Last Paid"]).sort_values("Created Time", ascending=False).drop_duplicates(subset="Email (Contact Name)").reset_index(drop=True)
+prevOpp = pd.read_csv(rootPath / rf"Data/Week {Week - 1}/Expense+Tracker.csv", parse_dates=["Created Time", "Start Date on Site", "End Date", "Latest Start Date on Site", "Date Last Paid"]).sort_values("Created Time", ascending=False).drop_duplicates(subset="Email (Contact Name)").reset_index(drop=True)
+latestOpp = pd.read_csv(dataPath / "Expense+Tracker.csv", parse_dates=["Created Time", "Start Date on Site", "End Date", "Latest Start Date on Site", "Date Last Paid"], na_values="-", skiprows=6).sort_values("Created Time", ascending=False).drop_duplicates(subset="Email (Contact Name)").reset_index(drop=True)
 
-df = report.merge(latestOpp, left_on="Email", right_on="Email (Contact Name)", how="left").drop("Email (Contact Name)", axis = 1)
+tracker = pd.concat([latestOpp, prevOpp]).drop_duplicates(subset="Record Id")
+
+df = report.merge(tracker, left_on="Email", right_on="Email (Contact Name)", how="left").drop("Email (Contact Name)", axis = 1)
 
 df = df[(df["CHQDATE"] >= df["Created Time"]) & (~df["PAYNO"].isin(previouslyPaid["PAYNO"]))]
 
@@ -85,3 +88,5 @@ crmimport.loc[ crmimport["PAYNO"].isin(previouslyPaid["PAYNO"]) & ((crmimport["S
 crmimport = crmimport.dropna(subset=["Record Id"])
 
 crmimport.to_csv("jarImport.csv", index=False)
+
+tracker.to_csv(dataPath / "Expense+Tracker.csv", index=False)

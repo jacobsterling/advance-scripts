@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name = "advancePythonScripts",
-    version="0.63",
+    version="0.64",
     description="Python data analysis scripts",
     author="Jacob Sterling",
     author_email="jacob.sterling@advance.online",

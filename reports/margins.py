@@ -13,6 +13,7 @@ week = tax_calcs().tax_week()
 
 homePath = Path.home() / "advance.online"
 
+user = str(Path.home()).split("\\")[-1]
 
 marginsPath = homePath / rf"J Drive - Exec Reports/Margins Reports/Margins {year}"
 
@@ -20,7 +21,7 @@ dataPath = marginsPath / rf"Data/Week {week - 1}"
 
 marginsReport = pd.read_excel(marginsPath / rf"Margins Report 2022-2023.xlsx", sheet_name=['Core Data', "Accounts 2", "Clients"])
 
-joiners  = pd.read_csv(Path.home() / "advance.online/J Drive - Operations/Reports/MCR/Joiners Error Report.csv",usecols=['Pay No',"Email Address", "MOBILE", "Sdc Option"], encoding = 'latin', low_memory=False)
+joiners  = pd.read_csv(Path.home() / "advance.online/J Drive - Operations/Reports/MCR/Joiners Error Report.csv",usecols=['Pay No',"Email Address", "Sdc Option"], encoding = 'latin', low_memory=False)
 
 joiners = joiners[joiners["Pay No"].apply(lambda x: PAYNO_Check(x))].drop_duplicates(subset=["Pay No"])
 joiners['Pay No'] = joiners['Pay No'].astype(int)
@@ -57,7 +58,9 @@ paye = pd.read_csv("margins paye.csv",encoding = 'latin')
 paye.loc[paye["FREQ"] == "W", "MANAGEMENT FEE"] = 1
 
 margins = pd.concat([io, axm, paye]).rename(columns={"COMPNAME": "Client Name"})
-margins = margins[(margins['PAYNO'].apply(lambda x: PAYNO_Check(x))) & (margins["MANAGEMENT FEE"] > 0)]
+margins = margins[margins["PAYNO"].apply(lambda x: PAYNO_Check(x))]
+zero_margins = margins[margins["MANAGEMENT FEE"] <= 0].reset_index().fillna("")
+margins = margins[margins["MANAGEMENT FEE"] > 0]
 margins['PAYNO'] = margins['PAYNO'].astype(int)
 
 margins = margins.merge(joiners, how = "left", left_on="PAYNO", right_on="Pay No").drop(columns = "Pay No").merge(clients, how="left").merge(accounts, left_on="OFFNO", right_on="Office Number", how="left").drop(columns=["OFFNO", "Office Number"])
@@ -157,10 +160,26 @@ for i, row in missingAgencies.iterrows():
         REF = f'{get_column_letter(j + 1)}{i + 2}'
         ws.write(REF,item)
         j += 1
+
+ws = wb.add_worksheet('0 Margins')
+for j, column in enumerate(margins.columns.values):
+    rowend = len(margins)+1
+    REF = f'{get_column_letter(j + 1)}{1}'
+    ws.write(REF,column,cell_format_column)
+    ws.set_column(f'{get_column_letter(j + 1)}:{get_column_letter(j + 1)}', 15)
         
+for i, row in (zero_margins).iterrows():
+    j = 0
+    for item in row:
+        REF = f'{get_column_letter(j + 1)}{i + 2}'
+        ws.write(REF,item)
+        j += 1
+        
+ws.hide()
+
 ws = wb.add_worksheet('Workers Paid')
 
-margins = margins[["Account Owner","Client Name","PAYNO","FIRSTNAME", "LASTNAME","MOBILE","Email Address","TOTHRS", "TOTPAY", "Basic", "Solution"]].fillna('')
+margins = margins[["Account Owner","Client Name","PAYNO","FIRSTNAME", "LASTNAME","Email Address","TOTHRS", "TOTPAY", "Basic", "Solution"]].fillna('')
 
 for j, column in enumerate(margins.columns.values):
     rowend = len(margins)+1

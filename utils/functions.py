@@ -92,8 +92,8 @@ class tax_calcs:
 
         return df
         
-    def period(self, d = None):
-        date = self.pd.to_datetime(d) if d else self.today
+    def period(self, d = None, frt: str = None):
+        date = self.pd.to_datetime(d, format = frt) if d else self.today
         
         df = self.tax_week_map()
         

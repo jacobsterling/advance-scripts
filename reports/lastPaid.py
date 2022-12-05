@@ -5,11 +5,11 @@ Created on Mon Feb 21 12:11:18 2022
 @author: jacob.sterling
 """
 
-import pandas as pd
-
-from utils.formats import taxYear
-from utils.functions import age, PAYNO_Check
 from pathlib import Path
+
+import pandas as pd
+from utils.formats import taxYear
+from utils.functions import PAYNO_Check, age
 
 Year = taxYear().Year('-')
     
@@ -78,6 +78,7 @@ last_paid_io.to_csv('last paid io.csv', encoding='utf-8', index=False)
 last_paid_axm.to_csv('last paid axm.csv', encoding='utf-8',index=False)
 
 import win32com.client as client
+
 outlook = client.Dispatch('Outlook.Application')
 email = outlook.CreateItem(0)
 email.To = 'enquiries@advance.online; hannah.jarvis@advance.online'
@@ -102,7 +103,7 @@ html = """
 
 email.Attachments.Add(Source = str(Path().absolute() / "Non Uk Nationality.csv"))
 email.HTMLBody = html.format(table1 = missingNI.to_html(index=False), table2 = under18.to_html(index=False))
-email.Send()
+email.Display()
 
 sample_path = Path(r'C:\Users\jacob.sterling\OneDrive - advance.online\Documents\Data\Last Week Setup Sample.xlsx')
 df = pd.read_csv(dataPath / "Last Week Setup.csv", encoding='latin')

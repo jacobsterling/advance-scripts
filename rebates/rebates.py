@@ -6,8 +6,7 @@ Created on Tue Aug  9 12:59:59 2022
 """
 
 #column for if profit below £10
-
-                
+   
 class rebates:
     def __init__(self):
         import datetime
@@ -29,7 +28,7 @@ class rebates:
         monthNum = int(input(rf"Enter Month Number ({year}): "))
         
         homePath = Path.home() / "advance.online"
-        self.rebatesPath = homePath / rf"J Drive - Finance/Rebates Reports/Rebates {self.yearAbbr}"
+        self.rebatesPath = homePath / rf"J Drive - Operations/Finance/Agency Rebates/Rebates {self.yearAbbr}"
         marginsPath = homePath / rf"J Drive - Exec Reports/Margins Reports/Margins {year}"
         groupsPath = Path.home() / "OneDrive - advance.online/Documents/data/groups.xlsx"
         
@@ -58,7 +57,6 @@ class rebates:
         for i, row in groups.iterrows():
             if not self.pd.isnull(row['Office Number']):
                 self.margins.loc[self.margins['Client Name'] == row['Client Name'], 'Office Number'] = float(row['Office Number'])
-            
             self.margins.loc[self.margins['Client Name'] == row['Client Name'], 'Group Name'] = row['Name Change']
     
         self.margins = self.margins.merge(rebateDetails, validate="many_to_one", how = "outer")
@@ -192,6 +190,8 @@ class rebates:
         
         rebates = self.pd.pivot_table(self.margins[~self.margins["Account Name"].isna()], columns = ["CHQDATE"], values=['Rebate', 'Margins'], index=['Group Name', "Client Name"], aggfunc={'Margins': np.sum,'Rebate': np.sum}, fill_value=0, margins = True)
         
+        rebates.loc[("RSS INFRASTRUCTURE LTD","RSS INFRASTRUCTURE LTD") , ('Rebate', 'All')] -= 1000
+        
         netMarginCore = self.pd.pivot_table(self.margins[self.margins["Account Owner"] != "Unmanned"], values=['Rebate', 'Margins', "Count of", "Revenue", "Average Margin"], index=["Account Owner", 'Group Name', "Client Name"], aggfunc={'Count of': np.sum, "Average Margin": np.mean, 'Margins': np.sum,'Rebate': np.sum,"Revenue": np.sum, }, fill_value=0, margins = True)
         
         netMarginOther = self.pd.pivot_table(self.margins[self.margins["Account Owner"] == "Unmanned"], values=['Rebate', 'Margins', "Count of", "Revenue", "Average Margin"], index=["Client Name"], aggfunc={'Count of': np.sum, "Average Margin": np.mean, 'Margins': np.sum,'Rebate': np.sum,"Revenue": np.sum, }, fill_value=0, margins = True)
@@ -204,7 +204,7 @@ class rebates:
             self.unmergedRebates.to_excel(writer, sheet_name="Unmerged Rebates", index= False)
             self.unmergedMargins.to_excel(writer, sheet_name="Unmerged Margins", index= False)
             wb = writer.book
-            money_fmt = wb.add_format({'num_format': '£#,##0.#0'})
+            money_fmt = wb.add_format({'num_format': r'£#,##0.#0'})
             ws = writer.sheets['Net Margins Core']
             ws.set_column('F:H', 12, money_fmt)
             ws.set_column('D:D', 12, money_fmt)
@@ -216,6 +216,8 @@ class rebates:
         writer.save()
 
         upload = self.pd.pivot_table(self.margins[(~self.margins["Account Name"].isna()) & (self.margins["Rebate"] > 0)], values=['Rebate', 'Count of'], index=["Account Name", "Account No", "Group Name"], aggfunc={'Rebate': np.sum, 'Count of': np.sum}, fill_value=0).reset_index().rename(columns={"Rebate": 'Group Sum'})
+        
+        upload.loc[upload["Group Name"] == "RSS INFRASTRUCTURE LTD" , 'Group Sum'] -= 1000
         
         upload["Month"] = month
         
@@ -236,6 +238,8 @@ class rebates:
         crmUpload = upload[~upload["Account Name"].isin(UPLOAD_EXCEPTIONS)].rename(columns={"Account Name": "CRM Name", 'Count of': "Total Margins", "Group Sum": "Total Amount"}).drop(columns=["Account No", "Group Name"])
         
         crmUpload["Rebate start week"] = min.strftime("%d/%m/%Y")
+        
+        crmUpload["Total Amount"] = crmUpload["Total Amount"].apply(lambda x: float(x.replace("£", '').replace(",", '')))
         
         crmUpload.to_csv(rebateDir / rf"{month} py Rebates {self.yearAbbr} - crm import.csv", index=False)
         

@@ -176,13 +176,9 @@ print('')
 print('Exporting Import and Error File...')
 print(datetime.datetime.now().time())
 
-tax_map = tax_calcs().tax_week_map()
-
-tax_map["Fiscal Period"] = tax_map["Fiscal Period"].apply(lambda x: "'0" + str(x) if x < 10 else str(x))
-
 bankStatement["Document Type"] = "JRNL"
 bankStatement["Year"] = yearFormat1
-bankStatement["Period"] = bankStatement["Date"].apply(lambda x: tax_map.loc[(tax_map['RangeS'].dt.date <= pd.to_datetime(x)) & (tax_map['RangeE'].dt.date >= pd.to_datetime(x)), 'Fiscal Period'].values[0])
+bankStatement["Period"] = bankStatement["Date"].apply(lambda x: tax_calcs().period(x, "%d/%m/%Y"))
 bankStatement["Nominal"] = 5310
 
 errorFile = bankStatement[bankStatement["Account"].isnull()]
