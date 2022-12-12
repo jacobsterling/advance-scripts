@@ -27,6 +27,10 @@ class rebates:
         
         monthNum = int(input(rf"Enter Month Number ({year}): "))
         
+        if monthNum < 1:
+            year = taxYear().Yearp("-")
+            monthNum += 12
+    
         homePath = Path.home() / "advance.online"
         self.rebatesPath = homePath / rf"J Drive - Operations/Finance/Agency Rebates/Rebates {self.yearAbbr}"
         marginsPath = homePath / rf"J Drive - Exec Reports/Margins Reports/Margins {year}"
@@ -107,59 +111,40 @@ class rebates:
                                     format_error(group, "value not a number")
                             
                             if v:
-                                match group[0]:
-                                    case "<":
-                                        if group[1]:
-                                            if margin < float(group[1]) and margin < 0:
-                                                value = v
-                                        else:
-                                            format_error(group, "no operator value")
-                                    
-                                    case "<=":
-                                        if group[1]:
-                                            if margin <= float(group[1]) and margin < 0:
-                                                value = v
-                                        else:
-                                            format_error(group, "no operator value")
+                                if group[0]:
+                                    if group[1]:
+                                        match group[0]:
+                                            case "<":
+                                                if margin < float(group[1]) and margin < 0:
+                                                    value = v
                                             
-                                    case ">":
-                                        if group[1]:
-                                            if margin > float(group[1]):
-                                                value = v
-                                        else:
-                                            format_error(group, "no operator value")
-                                    
-                                    case ">=":
-                                        if group[1]:
-                                            if margin >= float(group[1]):
-                                                value = v
-                                        else:
-                                            format_error(group, "no operator value")
-                                    
-                                    case "=":
-                                        if group[1]:
-                                            if margin == float(group[1]):
-                                                value = v
-                                        else:
-                                            format_error(group, "no operator value")
-                                    
-                                    case "==":
-                                        if group[1]:
-                                            if margin == float(group[1]):
-                                                value = v
-                                        else:
-                                            format_error(group, "no operator value")
+                                            case "<=":
+                                                if margin <= float(group[1]) and margin < 0:
+                                                    value = v
+                                                    
+                                            case ">":
+                                                if margin > float(group[1]):
+                                                    value = v
                                             
-                                    case None:
-                                        if group[2]:
-                                            if group[2] == row["Solution.1"]:
-                                                value = v
+                                            case ">=":
+                                                if margin >= float(group[1]):
+                                                    value = v
+                                            
+                                            case "=" | "==":
+                                                    if margin == float(group[1]):
+                                                        value = v
+                                                    
+                                            case other:
+                                                format_error(group, "unmanaged operator")
+                                    else:
+                                        format_error(group, "no operator value")
+                                else:
+                                    if group[2]:
+                                        if group[2] == row["Solution.1"]:
+                                            value = v
 
-                                        else:
-                                            format_error(group, "no solution")
-                                            
-                                    case other:
-                                        format_error(group, "unmanaged operator")
+                                    else:
+                                        format_error(group, "no solution")
                         else:
                             format_error(group, "no rebate value")
             self.margins.at[i, "Rebate"] = value if value else 0

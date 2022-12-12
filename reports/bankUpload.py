@@ -59,6 +59,8 @@ for file in branchCodesPath.glob("*"):
         accounts = pd.read_csv(file).drop_duplicates(subset="Description")
     if file.name.__contains__('Branch Codes') and file.suffix == ".csv":
         branchCodes = pd.read_csv(file)
+    if file.name.__contains__('Worker Ref') and file.suffix == ".csv":
+        workerRef = pd.read_csv(file)
         
 # fileC, fileCStat = None, 0
 # for file in clientsPath.glob("*"):
@@ -86,26 +88,31 @@ bankStatement = bankStatement[["Date","Narrative #1","Narrative #2","Credit"]].r
 bankStatement = bankStatement.merge(accounts,how = "left")
 
 if bankStatement["Description"].str.contains("ADVANCED RESOURCE").any() or bankStatement["Description"].str.contains("OPTAMOR LIMITED").any(): 
-    df = armPayroll(Week).readPDF()
+    arm = armPayroll(Week).readPDF()
 
 for i, row in bankStatement.iterrows():
     date = pd.to_datetime(row["Date"], format="%d/%m/%Y")
     week = tax_calcs().tax_week(date)
-    if row["Description"] in ["ADVANCED RESOURCE","OPTAMOR LIMITED"]:
-        for j, ref in df.iterrows():
-            if str(row["UF1"]) == str(ref["Remittance Ref"]):
-                print('_______________________________________________________________________')
-                print('')
-                print(f'ARM Detected, Changing Remittance Ref {row["UF1"]} to {ref["Invoice Number"]}...')
-                print(datetime.datetime.now().time())
-                UF1 = ref["Invoice Number"]
-    else:
-        week = "0" + str(week) if week < 10 else str(week)
+    match row["Description"]:
+        case "ADVANCED RESOURCE" | "OPTAMOR LIMITED":
+            for j, ref in arm.iterrows():
+                if str(row["UF1"]) == str(ref["Remittance Ref"]):
+                    print('_______________________________________________________________________')
+                    print('')
+                    print(f'ARM Detected, Changing Remittance Ref {row["UF1"]} to {ref["Invoice Number"]}...')
+                    UF1 = ref["Invoice Number"]
         
-        if not pd.isnull(row["UF1"]):
-            UF1 = str(row["UF1"]) + week
-        else:
-            UF1 = week
+        case "KEEN THINKING LIMI":
+            workerRef
+            pass
+        
+        case other:
+            week = "0" + str(week) if week < 10 else str(week)
+            
+            if not pd.isnull(row["UF1"]):
+                UF1 = str(row["UF1"]) + week
+            else:
+                UF1 = week
 
     bankStatement.at[i, "UF1"] = UF1
 
