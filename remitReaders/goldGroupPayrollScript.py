@@ -14,21 +14,6 @@ from tabula import read_pdf
 datetime.datetime.now()
 today = date.today()
 Year = today.year
-
-yearppp = Year - 3
-yearpp = Year - 2
-yearp = Year - 1
-yearc = Year
-yearcc = Year + 1
-
-if today.isocalendar()[1] > 39:
-    Yearpp = (f'{yearpp} - {yearp}')
-    Yearp = (f'{yearp} - {yearc}')
-    Year = (f'{yearc} - {yearcc}')
-else:
-    Yearpp = (f'{yearppp} - {yearpp}')
-    Yearp = (f'{yearpp} - {yearp}')
-    Year = (f'{yearp} - {yearc}')
     
 Week = input('Enter Week Number: ')
 

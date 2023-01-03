@@ -12,7 +12,7 @@ def get_var_name(res):
     name = [x for x in globals() if globals()[x] is res][0]
     return name[:31] if len(name) >= 31 else name
 
-joiners  = pd.read_csv(mcrPath / "Joiners Error Report.csv",usecols=['Pay No',"Sdc Option", "Fixed Expense Value", "Type"], encoding = 'latin', low_memory=False)
+joiners  = pd.read_csv(mcrPath / "Joiners Error Report.csv",usecols=['Pay No',"Sdc Option", "FIXED_EXPENSE_VALUE", "Type"], encoding = 'latin', low_memory=False)
 joiners = joiners[joiners['Pay No'].apply(lambda x: PAYNO_Check(x))].drop_duplicates(subset = 'Pay No')
 joiners['Pay No'] = joiners['Pay No'].astype(int)
 core_data = pd.read_csv(mcrPath / "Expenses Created.csv", encoding = 'latin', low_memory=False).merge(joiners, left_on = 'PAYNO',right_on = 'Pay No', how='left').drop(columns = ['Pay No'])
@@ -30,15 +30,15 @@ other = expenses[(~expenses["Sdc Option"].isin(["Fixed Expenses", "Under SDC", "
 
 undersdc_w_null_rr = undersdc[undersdc["Receipt Required"] == "No"]
 
-fixed_expenses_w_value_0 = expenses[(expenses["Receipt Required"] == "No") & (fixed_expenses["EXPENSE_DESC"] != "Mileage") & (expenses["Fixed Expense Value"] == 0)]
+fixed_expenses_w_value_0 = expenses[(expenses["Receipt Required"] == "No") & (fixed_expenses["EXPENSE_DESC"] != "Mileage") & (expenses["FIXED_EXPENSE_VALUE"] == 0)]
 
-fixed_expenses_w_value_25 = fixed_expenses[(fixed_expenses["Fixed Expense Value"] == 25) & (fixed_expenses["EXPENSE_DESC"] != "Subsistence £25") & (fixed_expenses["Receipt Required"] == "No")]
+fixed_expenses_w_value_25 = fixed_expenses[(fixed_expenses["FIXED_EXPENSE_VALUE"] == 25) & (fixed_expenses["EXPENSE_DESC"] != "Subsistence £25") & (fixed_expenses["Receipt Required"] == "No")]
 
-fixed_expenses_w_value_10 = fixed_expenses[(fixed_expenses["Fixed Expense Value"] == 10) & (fixed_expenses["EXPENSE_DESC"] != "Subsistence £10") & (fixed_expenses["Receipt Required"] == "No")]
+fixed_expenses_w_value_10 = fixed_expenses[(fixed_expenses["FIXED_EXPENSE_VALUE"] == 10) & (fixed_expenses["EXPENSE_DESC"] != "Subsistence £10") & (fixed_expenses["Receipt Required"] == "No")]
 
-fixed_expenses_w_value_5 = fixed_expenses[(fixed_expenses["Fixed Expense Value"] == 5) & (fixed_expenses["EXPENSE_DESC"] != "Subsistence £5") & (fixed_expenses["Receipt Required"] == "No")]
+fixed_expenses_w_value_5 = fixed_expenses[(fixed_expenses["FIXED_EXPENSE_VALUE"] == 5) & (fixed_expenses["EXPENSE_DESC"] != "Subsistence £5") & (fixed_expenses["Receipt Required"] == "No")]
 
-fixed_expenses_w_value_other = fixed_expenses[~fixed_expenses["Fixed Expense Value"].isin([25, 10, 5, 0])]
+fixed_expenses_w_value_other = fixed_expenses[~fixed_expenses["FIXED_EXPENSE_VALUE"].isin([25, 10, 5, 0])]
 
 mileage_claiming_other = mileage[(mileage["Receipt Required"] == "No") & (mileage["EXPENSE_DESC"] != "Mileage")]
 

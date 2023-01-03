@@ -47,6 +47,8 @@ outputPath = homePath / rf"Bank and Cash/PSF Files/{yearc}"
 
 bankPath = homePath / rf"1 Private Finance/Bank and Cash/Bank statements/Advance Contracting RBS/Advance Contracting Solutions/{yearc}"
 
+print(bankPath)
+
 clientsPath = Path("M:\Work\PSF\Invoice")
 
 print('_______________________________________________________________________')
@@ -71,6 +73,7 @@ for file in branchCodesPath.glob("*"):
 
 fileC, fileCStat = None, 0
 for file in bankPath.glob("*"):
+    print(file.name)
     if file.name.__contains__(dayToday):
         fileC = file
         break
@@ -102,9 +105,9 @@ for i, row in bankStatement.iterrows():
                     print(f'ARM Detected, Changing Remittance Ref {row["UF1"]} to {ref["Invoice Number"]}...')
                     UF1 = ref["Invoice Number"]
         
-        case "KEEN THINKING LIMI":
-            workerRef
-            pass
+        # case "KEEN THINKING LIMI":
+        #     workerRef
+        #     pass
         
         case other:
             week = "0" + str(week) if week < 10 else str(week)

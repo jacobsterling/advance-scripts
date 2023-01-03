@@ -13,7 +13,7 @@ from pathlib import Path
 import pandas as pd
 from utils import formats
 
-#1117
+#1118
 
 Year = formats.taxYear().Year("-")
 
@@ -31,21 +31,21 @@ jarOpportunites = pd.read_csv(dataPath / "Jar+Opportunities+-+Incentives.csv", n
 jarOpportunites["Margin Accrual"] = jarOpportunites["Margin Accrual"].fillna("0")
 jarOpportunites["Margin Accrual"] = jarOpportunites["Margin Accrual"].str.replace("£ ","").astype(float)
 
-report = pd.read_excel(reportPath, sheet_name="Core Data", parse_dates=["CHQDATE"])
-report = report[report["Client Name"] == "JAR SOLUTIONS"]
+# report = pd.read_excel(reportPath, sheet_name="Core Data", parse_dates=["CHQDATE"])
+# report = report[report["Client Name"] == "JAR SOLUTIONS"]
 
-prevOpp = pd.read_csv(rootPath / rf"Data/Week {Week - 1}/Expense+Tracker.csv", parse_dates=["Created Time", "Start Date on Site", "End Date", "Latest Start Date on Site", "Date Last Paid"]).sort_values("Created Time", ascending=False).drop_duplicates(subset="Email (Contact Name)").reset_index(drop=True)
-latestOpp = pd.read_csv(dataPath / "Expense+Tracker.csv", parse_dates=["Created Time", "Start Date on Site", "End Date", "Latest Start Date on Site", "Date Last Paid"], na_values="-", skiprows=6).sort_values("Created Time", ascending=False).drop_duplicates(subset="Email (Contact Name)").reset_index(drop=True)
+# prevOpp = pd.read_csv(rootPath / rf"Data/Week {Week - 1}/Expense+Tracker.csv", parse_dates=["Created Time", "Start Date on Site", "End Date", "Latest Start Date on Site", "Date Last Paid"]).sort_values("Created Time", ascending=False).drop_duplicates(subset="Email (Contact Name)").reset_index(drop=True)
+# latestOpp = pd.read_csv(dataPath / "Expense+Tracker.csv", parse_dates=["Created Time", "Start Date on Site", "End Date", "Latest Start Date on Site", "Date Last Paid"], na_values="-", skiprows=6).sort_values("Created Time", ascending=False).drop_duplicates(subset="Email (Contact Name)").reset_index(drop=True)
 
-tracker = pd.concat([latestOpp, prevOpp]).drop_duplicates(subset="Record Id")
+# tracker = pd.concat([latestOpp, prevOpp]).drop_duplicates(subset="Record Id")
 
-df = report.merge(tracker, left_on="Email", right_on="Email (Contact Name)", how="left").drop("Email (Contact Name)", axis = 1)
+# df = report.merge(tracker, left_on="Email", right_on="Email (Contact Name)", how="left").drop("Email (Contact Name)", axis = 1)
 
-df = df[(df["CHQDATE"] >= df["Created Time"]) & (~df["PAYNO"].isin(previouslyPaid["PAYNO"]))]
+# df = df[(df["CHQDATE"] >= df["Created Time"]) & (~df["PAYNO"].isin(previouslyPaid["PAYNO"]))]
 
-df = df.groupby(['PAYNO']).agg({"Margins":sum, "Email":"first", "Record Id":"first"}).reset_index(drop=True)
+# df = df.groupby(['PAYNO']).agg({"Margins":sum, "Email":"first", "Record Id":"first"}).reset_index(drop=True)
 
-df.to_csv(rf"backup {Year}.csv", index=False)
+# df.to_csv(rf"backup {Year}.csv", index=False)
 
 jarFeesRetained = None
 for file in dataPath.glob("*"):
@@ -89,4 +89,4 @@ crmimport = crmimport.dropna(subset=["Record Id"])
 
 crmimport.to_csv("jarImport.csv", index=False)
 
-tracker.to_csv(dataPath / "Expense+Tracker.csv", index=False)
+#tracker.to_csv(dataPath / "Expense+Tracker.csv", index=False)

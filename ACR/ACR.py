@@ -53,10 +53,9 @@ PAY_DESC_DAY_RATE = ['Day rate EDU - TEN',
 #reads csv file
 df_MCR = pd.read_csv("Timesheets Hist.csv",
                      encoding = 'latin')
-df_MCR = df_MCR[df_MCR['PAYNO'].apply(lambda x: PAYNO_Check(x))]
 df_MCR['PAYNO'] = df_MCR['PAYNO'].astype(float)
 
-df_Joiners_Error_Report = pd.read_csv("Joiners Error Report.csv",
+df_Joiners_Error_Report = pd.read_csv("Joiners Error Report io.csv",
                                       encoding = 'latin',
                                       low_memory=False,
                                       usecols = ['Pay No',"Forenames", "Surname","STATUS",'Sdc Option', 'Type', 'Date of Birth','DOJ','FEE_TYPE','REWARDS'])
@@ -148,7 +147,7 @@ df = pd.merge(df, df_Joiners_Error_Report, left_on = 'PAYNO', right_on = 'Pay No
 
 df["Full Name"] = df["Forenames"] + " " + df["Surname"]
 
-df_pivot = pd.pivot_table(df[df['COMPNAME'] == "SCANTEC PERSONNEL LIMITED"], values=['CONTRACTING RATE'], index=["Full Name", 'PAYNO' , "STATUS"], aggfunc={'CONTRACTING RATE': np.mean}, fill_value=0, margins=True)
+df_pivot = pd.pivot_table(df, values=['CONTRACTING RATE'], index=["Full Name", 'PAYNO' , "STATUS"], aggfunc={'CONTRACTING RATE': np.mean}, fill_value=0, margins=True)
 
-df_pivot.to_csv("ACR Week 48-52.csv")
+df_pivot.to_csv("ACR Week.csv")
 

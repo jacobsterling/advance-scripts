@@ -7,5 +7,5 @@ setup(
     author="Jacob Sterling",
     author_email="jacob.sterling@advance.online",
     packages=["utils", "reports", "remitReaders", "rebates", "MCR", "ACR", "zohoSDK"],
-    install_requires=["pywin32", "pandas", "numpy", "pdfplumber", "xlsxwriter", "openpyxl"]
+    install_requires=["pywin32", "pandas", "numpy", "pdfplumber", "xlsxwriter", "openpyxl", "tabula"]
 )

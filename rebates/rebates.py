@@ -218,7 +218,7 @@ class rebates:
          
         psfUpload.to_csv(rebateDir / rf"{month} py Rebates {self.yearAbbr} - psf import.csv", index=False, encoding="latin")
         
-        UPLOAD_EXCEPTIONS = ["Advanced Resource Managers", "Search Consultancy Manchester","NRL Glasgow","Scantec Personnel Ltd", "Manpower", "Rullion Build Glasgow"]
+        UPLOAD_EXCEPTIONS = ["Advanced Resource Managers", "Search Consultancy Manchester","NRL Glasgow","Scantec Personnel Ltd", "Manpower", "Rullion Build Glasgow", "White Label Recruitment"]
         
         crmUpload = upload[~upload["Account Name"].isin(UPLOAD_EXCEPTIONS)].rename(columns={"Account Name": "CRM Name", 'Count of': "Total Margins", "Group Sum": "Total Amount"}).drop(columns=["Account No", "Group Name"])
         
