@@ -26,7 +26,7 @@ class intermediaryReportScript():
         self.outlook = client.Dispatch('Outlook.Application')
         
         self.subject = f'Intermediary Report - {self.Quarter}'
-            
+        
         #To answer your question regarding the lack of information on the intermediary report, 
         #all category F contractors are paid on an employment basis. 
         #All of their payment details will be captured in our FPS that we submit each week to HMRC and are therefore not needed on the intermediary report. 
@@ -435,17 +435,26 @@ class intermediaryReportScript():
                         self.missingInfo += 1
                         self.details += 'Missing Account Owner, '
                     
-                    self.nullVar('account type', accountType, 1)                    
-                        
+                    self.nullVar('account type', accountType, 1)
+                    
                     if accountType in ['Group', 'End Client'] and self.c:
                         if clientName == "MASTER PEACE RECRUITMENT":
                             try:
                                 from utils.functions import tax_calcs
                                 
                                 tax_week_map = tax_calcs().tax_week_map()
-                                quartermap = tax_week_map[tax_week_map["Quarter"] == self.Quarter]
+                                quartermap = tax_week_map[tax_week_map["Quarter"].str.contains(self.Quarter)]
                                 emp = self.pd.DataFrame([], columns=["Payno", "Agency","SW_SEX"])
+                                
+                                # report = self.pd.DataFrame([], columns=["Employment intermediary name", "Master Peace Recruitment"])
+                                # report.at[0, "Employment intermediary name"] = "Employment intermediary address line 1"
+                                # report.at[1, "Employment intermediary name"] = "Employment intermediary address line 2"
+                                # report.at[2, "Employment intermediary name"] = "Employment intermediary address line 3"
+                                # report.at[3, "Employment intermediary name"] = "Employment intermediary address line 4"
+                                # report.at[4, "Employment intermediary name"] = "Employment intermediary postcode"
+                                
                                 for i, row in quartermap.iterrows():
+                                    print(rf"Reading Emp: {row['Week']}")
                                     temp = self.pd.read_csv(self.dataPath / rf"Week {row['Week']}/emp paid by week.csv", usecols = emp.columns)
                                     emp = self.pd.concat([ emp, temp ])
                                 
@@ -462,7 +471,7 @@ class intermediaryReportScript():
                                 self.changes += 1
                                 accountType = 'Grouped'
                             except FileNotFoundError:
-                                pass
+                                print("Failed to create MASTERPEICE Report")
                         else:
                             group = self.df.loc[self.df['Client'] == clientName] if accountType == 'Group' else self.df.loc[self.df['Account Type'] == 'End Client']
                             if len(group) > 1:
@@ -728,6 +737,6 @@ class intermediaryReportScript():
         if self.c:
             self.missingData.to_csv("missing information.csv", index = False)
             
-#df= intermediaryReportScript().createTracker()
+#intermediaryReportScript().createTracker()
 
 intermediaryReportScript().editTracker()

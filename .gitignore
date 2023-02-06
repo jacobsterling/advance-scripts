@@ -1,5 +1,7 @@
 *.xlsx
 *.csv
+*.webarchive
+*.zip
 .vscode
 __pycache__
 build

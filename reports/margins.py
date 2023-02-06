@@ -9,6 +9,7 @@ from utils.formats import taxYear
 from utils.functions import PAYNO_Check, tax_calcs
 
 year = taxYear().Year("-")
+yearp = taxYear().Yearp("-")
 week = tax_calcs().tax_week()
 
 homePath = Path.home() / "advance.online"
@@ -16,15 +17,22 @@ homePath = Path.home() / "advance.online"
 user = str(Path.home()).split("\\")[-1]
 
 marginsPath = homePath / rf"J Drive - Exec Reports/Margins Reports/Margins {year}"
+#marginspPath = homePath / rf"J Drive - Exec Reports/Margins Reports/Margins {yearp}"
 
 dataPath = marginsPath / rf"Data/Week {week - 1}"
 
-marginsReport = pd.read_excel(marginsPath / rf"Margins Report 2022-2023.xlsx", sheet_name=['Core Data', "Accounts 2", "Clients"])
+marginsReport = pd.read_excel(marginsPath / rf"Margins Report {year}.xlsx", sheet_name=['Core Data', "Accounts 2", "Clients"])
+#marginspReport = pd.read_excel(marginspPath / rf"Margins Report {yearp}.xlsx", sheet_name=['Core Data', "Accounts 2", "Clients"])
 
 joiners  = pd.read_csv(Path.home() / "advance.online/J Drive - Operations/Reports/MCR/Joiners Error Report.csv",usecols=['Pay No',"Email Address", "Sdc Option"], encoding = 'latin', low_memory=False)
 
 joiners = joiners[joiners["Pay No"].apply(lambda x: PAYNO_Check(x))].drop_duplicates(subset=["Pay No"])
 joiners['Pay No'] = joiners['Pay No'].astype(int)
+
+joinersp  = pd.read_csv(Path.home() / "advance.online/J Drive - Operations/Reports/MCR/Joiners Error Report p.csv",usecols=['Pay No',"Email Address", "Sdc Option"], encoding = 'latin', low_memory=False)
+
+joinersp = joinersp[joinersp["Pay No"].apply(lambda x: PAYNO_Check(x))].drop_duplicates(subset=["Pay No"])
+joinersp['Pay No'] = joinersp['Pay No'].astype(int)
 
 core_accounts = ["Martin Brown", "Gerry Hunnisett", "Adam Shaw", "Sam Amos", "Dave Levenston"]
 
@@ -34,6 +42,7 @@ accounts['Office Number'] = accounts['Office Number'].astype(int)
 accounts = accounts.drop_duplicates(subset=['Office Number'], keep='first')
 
 core = marginsReport["Core Data"]
+#corep = marginspReport["Core Data"]
 
 clients = marginsReport["Clients"][["Company Name                   ","OFFNO"]].rename(columns = {"Company Name                   ":"Client Name"})
 clients.sort_values("Client Name", inplace = True)
@@ -44,10 +53,18 @@ clients.drop_duplicates(subset ="Client Name",
 prevWeek = core[(core["Week Number"] == week - 1) & (core["Margins"] > 0)]
 prevWeek.loc[~prevWeek["CRM"].isin(core_accounts), "CRM"] = "Unmanned Account"
 
-prevPivot = pd.pivot_table(data= prevWeek, values="Margins", index=["CRM","Client Name"], aggfunc={"Margins": len}).rename(columns={"Margins": "Prev Week"}).reset_index()
+#prevYear = corep[(corep["Week Number"] == week) & (corep["Margins"] > 0)]
+#prevYear.loc[~prevYear["CRM"].isin(core_accounts), "CRM"] = "Unmanned Account"
+
+prevWPivot = pd.pivot_table(data= prevWeek, values="Margins", index=["CRM","Client Name"], aggfunc={"Margins": len}).rename(columns={"Margins": "Prev Week"}).reset_index()
 
 prevWeek = prevWeek[prevWeek['PAYNO'].apply(lambda x: PAYNO_Check(x))]
 prevWeek['PAYNO'] = prevWeek['PAYNO'].astype(int)
+
+#prevYPivot = pd.pivot_table(data= prevYear, values="Margins", index=["CRM","Client Name"], aggfunc={"Margins": len}).rename(columns={"Margins": "Prev Year"}).reset_index().drop(columns = "CRM")
+
+#prevYear = prevYear[prevYear['PAYNO'].apply(lambda x: PAYNO_Check(x))]
+#prevYear['PAYNO'] = prevYear['PAYNO'].astype(int)
 
 date = tax_calcs().chqdate(week)
 
@@ -74,13 +91,18 @@ margins.loc[ margins["Sdc Option"] == "Fixed Expenses", "Solution"] = "Umbrella 
 margins.loc[ margins["TYPE"] == "CIS", "Solution"] = "CIS"
 
 missingWorkers = prevWeek[~prevWeek["PAYNO"].isin(margins["PAYNO"].unique())][["Client Name", "PAYNO","Surname","Forename","Solution.1"]].drop_duplicates(subset="PAYNO").reset_index(drop=True).fillna('')
-missingAgencies = prevPivot[~prevPivot["Client Name"].isin(margins["Client Name"].unique())][["Client Name"]].drop_duplicates(subset="Client Name").reset_index(drop=True).fillna('')
 
-pivot = pd.pivot_table(data= margins, values="MANAGEMENT FEE", index=["Account Owner", "Client Name"], aggfunc={"MANAGEMENT FEE": len}).reset_index().rename(columns={"MANAGEMENT FEE": "Total"}).merge(prevPivot, how="outer", left_on="Client Name", right_on="Client Name")
+missingAgencies = prevWPivot[~prevWPivot["Client Name"].isin(margins["Client Name"].unique())][["Client Name"]].drop_duplicates(subset="Client Name").reset_index(drop=True).fillna('')
+
+pivot = pd.pivot_table(data= margins, values="MANAGEMENT FEE", index=["Account Owner", "Client Name"], aggfunc={"MANAGEMENT FEE": len}).reset_index().rename(columns={"MANAGEMENT FEE": "Total"}).merge(prevWPivot, how="outer", left_on="Client Name", right_on="Client Name")#.merge(prevYPivot, how="outer", left_on="Client Name", right_on="Client Name")
 
 pivot.loc[pivot["Account Owner"].isna(), "Account Owner"] = pivot.loc[pivot["Account Owner"].isna(), "CRM"]
 
-pivot = pivot.drop(columns = "CRM").fillna(0).sort_values("Account Owner")
+pivot = pivot.drop(columns = "CRM").fillna(0)
+
+pivot["Account Owner"] = pivot["Account Owner"].astype(str)
+
+pivot = pivot.sort_values("Account Owner")
 
 pivot["Difference"] = pivot["Total"] - pivot["Prev Week"]
 

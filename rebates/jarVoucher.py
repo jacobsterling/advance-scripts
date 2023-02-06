@@ -13,11 +13,11 @@ from pathlib import Path
 import pandas as pd
 from utils import formats
 
-#1118
+#1120
 
 Year = formats.taxYear().Year("-")
 
-Week = int(input("Enter Week to update with: "))
+Week: int = input("Enter Week to update with: ")
 
 rootPath = Path.home() / rf"advance.online/J Drive - Exec Reports/Margins Reports/Margins {Year}"
 
@@ -28,65 +28,20 @@ reportPath = rootPath / rf"Margins Report {formats.taxYear().Year('-')}.xlsx"
 previouslyPaid = pd.read_csv("jarPaid.csv")
 
 jarOpportunites = pd.read_csv(dataPath / "Jar+Opportunities+-+Incentives.csv", na_values="-", skiprows=6)
-jarOpportunites["Margin Accrual"] = jarOpportunites["Margin Accrual"].fillna("0")
-jarOpportunites["Margin Accrual"] = jarOpportunites["Margin Accrual"].str.replace("£ ","").astype(float)
 
-# report = pd.read_excel(reportPath, sheet_name="Core Data", parse_dates=["CHQDATE"])
-# report = report[report["Client Name"] == "JAR SOLUTIONS"]
+report = pd.read_excel(reportPath, sheet_name="Core Data", parse_dates=["CHQDATE"])
+report = report[report["Client Name"] == "JAR SOLUTIONS"]
 
-# prevOpp = pd.read_csv(rootPath / rf"Data/Week {Week - 1}/Expense+Tracker.csv", parse_dates=["Created Time", "Start Date on Site", "End Date", "Latest Start Date on Site", "Date Last Paid"]).sort_values("Created Time", ascending=False).drop_duplicates(subset="Email (Contact Name)").reset_index(drop=True)
-# latestOpp = pd.read_csv(dataPath / "Expense+Tracker.csv", parse_dates=["Created Time", "Start Date on Site", "End Date", "Latest Start Date on Site", "Date Last Paid"], na_values="-", skiprows=6).sort_values("Created Time", ascending=False).drop_duplicates(subset="Email (Contact Name)").reset_index(drop=True)
+df = report.merge(jarOpportunites, left_on="Email", right_on="Email (Contact Name)", how="left").drop("Email (Contact Name)", axis = 1)
 
-# tracker = pd.concat([latestOpp, prevOpp]).drop_duplicates(subset="Record Id")
+df = df[(df["CHQDATE"] >= df["Created Time"]) & (~df["PAYNO"].isin(previouslyPaid["PAYNO"]))]
 
-# df = report.merge(tracker, left_on="Email", right_on="Email (Contact Name)", how="left").drop("Email (Contact Name)", axis = 1)
+df = df.groupby(['PAYNO']).agg({"Margins":sum, "Email":"first", "Record Id":"first", "Solutions":"first", "PAYNO": "first", "Consultant Voucher Received On": "first" }).reset_index(drop=True)
 
-# df = df[(df["CHQDATE"] >= df["Created Time"]) & (~df["PAYNO"].isin(previouslyPaid["PAYNO"]))]
+df.loc[(df["Margins"] >= 102) & ((df["Solutions"] == "Umbrella") | (df["Solutions"] == "Umbrella no Expenses")) ,"Consultant Voucher Received"] = "£50 Voucher"
 
-# df = df.groupby(['PAYNO']).agg({"Margins":sum, "Email":"first", "Record Id":"first"}).reset_index(drop=True)
+df.loc[(df["Margins"] >= 102) & ((df["Solutions"] == "Umbrella with Mileage") | (df["Solutions"] == "Umbrella with Expenses")) ,"Consultant Voucher Received"] = "£75 Voucher"
 
-# df.to_csv(rf"backup {Year}.csv", index=False)
+df.loc[ (df["PAYNO"].isin(previouslyPaid["PAYNO"])) & (df["Consultant Voucher Received On"].isna()),"Consultant Voucher Received On"] = datetime.now().strftime("%d/%m/%Y")
 
-jarFeesRetained = None
-for file in dataPath.glob("*"):
-    if file.name.__contains__("io"):
-        if file.name.__contains__("ees retained"):
-            feesRetained = pd.read_csv(file)
-        if file.name.__contains__("oiners"):
-            joiners = pd.read_csv(file, usecols=["Pay No", "Email Address"], encoding = "latin").rename(columns={"Pay No": "PAYNO", "Email Address":"Email (Contact Name)"})
-
-feesRetained["PAYNO"] = feesRetained["PAYNO"].astype(int)
-
-def isInt(x):
-    try:
-        int(x)
-        return True
-    except ValueError:
-        return False
-
-joiners = joiners[joiners["PAYNO"].apply(lambda x: isInt(x))]
-
-joiners["PAYNO"] = joiners["PAYNO"].astype(int)
-
-feesRetained = feesRetained[feesRetained["Client Name"] == "JAR SOLUTIONS"]
-
-feesRetained = feesRetained.groupby("PAYNO").agg({"Management Fee":sum, "Solution":"first"}).reset_index()
-
-feesRetained = feesRetained.merge(joiners, how = "left", validate="one_to_many")
-
-crmimport = feesRetained.merge(jarOpportunites, how = "left")
-
-crmimport["Margin Accrual"] = crmimport["Margin Accrual"] + crmimport["Management Fee"]
-
-crmimport.loc[(crmimport["Margin Accrual"] >= 102) & ((crmimport["Solutions"] == "Umbrella") | (crmimport["Solutions"] == "Umbrella no Expenses")) ,"Consultant Voucher Received"] = "£50 Voucher"
-crmimport.loc[(crmimport["Margin Accrual"] >= 102) & ((crmimport["Solutions"] == "Umbrella with Mileage") | (crmimport["Solutions"] == "Umbrella with Expenses")) ,"Consultant Voucher Received"] = "£75 Voucher"
-
-crmimport.loc[ (crmimport["PAYNO"].isin(previouslyPaid["PAYNO"])) & (crmimport["Consultant Voucher Received On"].isna()),"Consultant Voucher Received On"] = datetime.now().strftime("%d/%m/%Y")
-crmimport.loc[ crmimport["PAYNO"].isin(previouslyPaid["PAYNO"]) & ((crmimport["Solutions"] == "Umbrella") | (crmimport["Solutions"] == "Umbrella no Expenses")) ,"Consultant Voucher Received"] = "£50 Voucher"
-crmimport.loc[ crmimport["PAYNO"].isin(previouslyPaid["PAYNO"]) & ((crmimport["Solutions"] == "Umbrella with Mileage") | (crmimport["Solutions"] == "Umbrella with Expenses")) ,"Consultant Voucher Received"] = "£75 Voucher"
-
-crmimport = crmimport.dropna(subset=["Record Id"])
-
-crmimport.to_csv("jarImport.csv", index=False)
-
-#tracker.to_csv(dataPath / "Expense+Tracker.csv", index=False)
+df.to_csv("jarImport.csv", index=False)

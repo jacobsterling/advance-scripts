@@ -17,15 +17,22 @@ from utils.functions import tax_calcs
 
 year = taxYear().Year('-')
 yearAbbr = taxYear().Year_format1("-")
-yA, _ = yearAbbr.split("-")
 
-monthNum = int(input(rf"Enter Month Number ({year}): "))
+userInput = input(rf"Enter Month Number + Year (xx {yearAbbr}): ")
+        
+monthNum, yearInput = userInput.split(" ")
+        
+monthNum = int(monthNum)
+        
+mn, mx = yearAbbr.split("-")
+        
+yA = int(mx) if mx == yearInput else int(mn)
    
 datetime_object = datetime.datetime.strptime(str(monthNum), "%m")
 month = datetime_object.strftime("%B")
 
 homePath = Path.home() / "advance.online"
-rebatesPath = homePath / rf"J Drive - Finance/Rebates Reports/Rebates {yearAbbr}/{month} {yA}"
+rebatesPath = homePath / rf"J Drive - Operations/Finance/Agency Rebates/Rebates {yearAbbr}/{month} {yA}"
 
 rebates = pd.read_excel(rebatesPath / rf"{month} py Rebates {yearAbbr}.xlsx", sheet_name= 'Core Data',usecols = ['Client Name','Surname','Forename','Margins','CHQDATE',"Email"]).rename(columns={'CHQDATE':'Date Paid','Margins':'Margin'})
 rebates = rebates[(rebates['Margin'] > 0) & (rebates['Client Name'] == 'SCANTEC PERSONNEL LIMITED')].drop('Client Name',axis=1)
@@ -64,7 +71,7 @@ if len(missingCode) > 0:
     for i, row in missingCode.iterrows():
         code = input(rf"Enter missing code for {row['Consultant Name in CRM']}:")
 
-        consultants = pd.concat([consultants, [row['Consultant Name in CRM'], code]])
+        consultants = pd.concat([consultants, pd.Series([[row['Consultant Name in CRM'], code]])])
 
         rebates.loc[rebates['Consultant Name in CRM'] == row['Consultant Name in CRM'], 'Reference'] = code
         
@@ -104,6 +111,8 @@ cellColumn = wb.add_format({'font_size' : 16,
 
 chqdates = rebates['Date Paid'].unique()
 
+print(pd.DataFrame(chqdates))
+
 totals = pd.DataFrame([],columns=['','£4.75','£3'],index=pd.DataFrame(chqdates)[0].apply(lambda x: tax_calcs().tax_week(x)).sort_values())
 print(totals)
 
@@ -111,8 +120,7 @@ for chqdate in chqdates:
     df = rebates[rebates['Date Paid'] == chqdate].reset_index(drop = True)
     df['Margin'] = 1
     
-    chqdate = pd.to_datetime(chqdate)
-    date = chqdate.strftime('%d.%m')
+    date = pd.to_datetime(chqdate).strftime('%d.%m')
     week = tax_calcs().tax_week(chqdate)
     ws = wb.add_worksheet(f'Week {week} {date}')
     

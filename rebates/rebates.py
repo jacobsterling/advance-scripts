@@ -20,17 +20,25 @@ class rebates:
         
         self.yearAbbr = taxYear().Year_format1("-")
         year = taxYear().Year("-")
-        yearc = taxYear().yearc
         self.week = functions.tax_calcs().tax_week()
         
         CORE_ACCOUNTS = ['Adam Shaw','Dave Levenston','Gerry Hunnisett','Sam Amos']
         
-        monthNum = int(input(rf"Enter Month Number ({year}): "))
+        userInput = input(rf"Enter Month Number + Year (xx {self.yearAbbr}): ")
+        
+        monthNum, yearInput = userInput.split(" ")
+        
+        monthNum = int(monthNum)
+        
+        mn, mx = self.yearAbbr.split("-")
+        
+        yearc = int(rf"20{mx}") if mx == yearInput else int(rf"20{mn}")
+        self.yA = int(mx) if mx == yearInput else int(mn)
         
         if monthNum < 1:
             year = taxYear().Yearp("-")
             monthNum += 12
-    
+            
         homePath = Path.home() / "advance.online"
         self.rebatesPath = homePath / rf"J Drive - Operations/Finance/Agency Rebates/Rebates {self.yearAbbr}"
         marginsPath = homePath / rf"J Drive - Exec Reports/Margins Reports/Margins {year}"
@@ -153,15 +161,14 @@ class rebates:
     def export(self):
         import numpy as np
         from utils.functions import tax_calcs
-    
         
-        max = self.pd.to_datetime(str(np.max(self.chqdates)))
-        min = self.pd.to_datetime(str(np.min(self.chqdates)))
-        period = tax_calcs().period(max)
-        month = max.strftime("%B")
-        yA, _ = self.yearAbbr.split("-")
+        max = str(np.max(self.chqdates))
+        min = str(np.min(self.chqdates))
         
-        rebateDir = self.rebatesPath / rf"{month} {yA}"
+        period = tax_calcs().period(max, "%Y-%m-%dT%H:%M:%S.%f000")
+        month = self.pd.to_datetime(max).strftime("%B")
+        
+        rebateDir = self.rebatesPath / rf"{month} {self.yA}"
         
         self.unmergedMargins = self.margins[self.margins["Account Name"].isna()]
         
@@ -206,11 +213,13 @@ class rebates:
         
         upload["Month"] = month
         
-        upload["Rebate end week"] = max.strftime("%d/%m/%Y")
+        upload["Rebate end week"] = self.pd.to_datetime(max).strftime("%d/%m/%Y")
         
         upload["Group Sum"] = upload["Group Sum"].map('£{:,.2f}'.format)
         
-        psfUpload = upload.rename(columns={"Account No": "Account Code", "Group Name": "Merit Name", "Rebate end week":"Date to Accrue for"}).drop(columns=['Count of', "Account Name"]).reindex(columns=["Merit Name","Group Sum","Account Code", "Month", "Date to Accrue for"])
+        PSF_UPLOAD_EXCEPTIONS = ["Alexander Mann & Public Sector Resource"]
+                                 
+        psfUpload = upload[~upload["Account Name"].isin(PSF_UPLOAD_EXCEPTIONS)].rename(columns={"Account No": "Account Code", "Group Name": "Merit Name", "Rebate end week":"Date to Accrue for"}).drop(columns=['Count of', "Account Name"]).reindex(columns=["Merit Name","Group Sum","Account Code", "Month", "Date to Accrue for"])
 
         psfUpload["Period"] = "'" + str(period) if period > 9 else "'0" + str(period)
         
@@ -218,11 +227,11 @@ class rebates:
          
         psfUpload.to_csv(rebateDir / rf"{month} py Rebates {self.yearAbbr} - psf import.csv", index=False, encoding="latin")
         
-        UPLOAD_EXCEPTIONS = ["Advanced Resource Managers", "Search Consultancy Manchester","NRL Glasgow","Scantec Personnel Ltd", "Manpower", "Rullion Build Glasgow", "White Label Recruitment"]
+        CRM_UPLOAD_EXCEPTIONS = ["Alexander Mann & Public Sector Resource" , "Advanced Resource Managers", "Search Consultancy Manchester","NRL Glasgow","Scantec Personnel Ltd", "Manpower", "Rullion Build Glasgow", "White Label Recruitment"]
         
-        crmUpload = upload[~upload["Account Name"].isin(UPLOAD_EXCEPTIONS)].rename(columns={"Account Name": "CRM Name", 'Count of': "Total Margins", "Group Sum": "Total Amount"}).drop(columns=["Account No", "Group Name"])
+        crmUpload = upload[~upload["Account Name"].isin(CRM_UPLOAD_EXCEPTIONS)].rename(columns={"Account Name": "CRM Name", 'Count of': "Total Margins", "Group Sum": "Total Amount"}).drop(columns=["Account No", "Group Name"])
         
-        crmUpload["Rebate start week"] = min.strftime("%d/%m/%Y")
+        crmUpload["Rebate start week"] = self.pd.to_datetime(min).strftime("%d/%m/%Y")
         
         crmUpload["Total Amount"] = crmUpload["Total Amount"].apply(lambda x: float(x.replace("£", '').replace(",", '')))
         

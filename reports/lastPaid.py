@@ -59,9 +59,15 @@ missingNI = last_paid[last_paid['NI_NO'].isna()].reset_index(drop=True)
 
 under18 = last_paid[last_paid['Date of Birth'].apply(age) < 18].reset_index(drop=True)
 
-nonUkNationality = last_paid[~last_paid['Nationality'].isin(["British", "British (EU)", "BRITISH", "Scottish", "Welsh", "Scottish (EU)", "Welsh (EU)","English (EU)", "British "])].reset_index(drop=True)
+ukNationalities = ["Irish (EU)", "British", "British (EU)", "BRITISH", "Scottish", "Welsh", "Scottish (EU)", "Welsh (EU)","English (EU)", "British "]
+
+nonUkNationality = last_paid[~last_paid['Nationality'].isin(ukNationalities)].reset_index(drop=True)
 
 nonUkNationality.to_csv("Non Uk Nationality.csv", index = False)
+
+ukNationality = last_paid[last_paid['Nationality'].isin(ukNationalities)].reset_index(drop=True)
+
+ukNationality.to_csv("Uk Nationality.csv", index = False)
 
 last_paid_io = last_paid_io.drop(columns = ["NI_NO", "Date of Birth", "Sdc Option", "Nationality"])
 last_paid_axm = last_paid_axm.drop(columns = ["NI_NO", "Date of Birth", "Nationality"])
@@ -102,6 +108,8 @@ html = """
 """
 
 email.Attachments.Add(Source = str(Path().absolute() / "Non Uk Nationality.csv"))
+email.Attachments.Add(Source = str(Path().absolute() / "Uk Nationality.csv"))
+
 email.HTMLBody = html.format(table1 = missingNI.to_html(index=False), table2 = under18.to_html(index=False))
 email.Display()
 
