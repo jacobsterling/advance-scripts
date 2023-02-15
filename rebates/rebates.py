@@ -217,7 +217,7 @@ class rebates:
         
         upload["Group Sum"] = upload["Group Sum"].map('£{:,.2f}'.format)
         
-        PSF_UPLOAD_EXCEPTIONS = ["Alexander Mann & Public Sector Resource"]
+        PSF_UPLOAD_EXCEPTIONS = []
                                  
         psfUpload = upload[~upload["Account Name"].isin(PSF_UPLOAD_EXCEPTIONS)].rename(columns={"Account No": "Account Code", "Group Name": "Merit Name", "Rebate end week":"Date to Accrue for"}).drop(columns=['Count of', "Account Name"]).reindex(columns=["Merit Name","Group Sum","Account Code", "Month", "Date to Accrue for"])
 
@@ -227,13 +227,15 @@ class rebates:
          
         psfUpload.to_csv(rebateDir / rf"{month} py Rebates {self.yearAbbr} - psf import.csv", index=False, encoding="latin")
         
-        CRM_UPLOAD_EXCEPTIONS = ["Alexander Mann & Public Sector Resource" , "Advanced Resource Managers", "Search Consultancy Manchester","NRL Glasgow","Scantec Personnel Ltd", "Manpower", "Rullion Build Glasgow", "White Label Recruitment"]
+        CRM_UPLOAD_EXCEPTIONS = ["Advanced Resource Managers", "Search Consultancy Manchester","NRL Glasgow","Scantec Personnel Ltd", "Manpower", "Rullion Build Glasgow", "White Label Recruitment"]
         
         crmUpload = upload[~upload["Account Name"].isin(CRM_UPLOAD_EXCEPTIONS)].rename(columns={"Account Name": "CRM Name", 'Count of': "Total Margins", "Group Sum": "Total Amount"}).drop(columns=["Account No", "Group Name"])
         
         crmUpload["Rebate start week"] = self.pd.to_datetime(min).strftime("%d/%m/%Y")
         
         crmUpload["Total Amount"] = crmUpload["Total Amount"].apply(lambda x: float(x.replace("£", '').replace(",", '')))
+        
+        crmUpload["Send Rebate Info"] = False
         
         crmUpload.to_csv(rebateDir / rf"{month} py Rebates {self.yearAbbr} - crm import.csv", index=False)
         
