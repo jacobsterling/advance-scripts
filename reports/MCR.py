@@ -10,12 +10,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import win32com.client as client
-from utils.functions import PAYNO_Check, age
 
-# converts the name of a variable into a string, used to name the sheets on the MCR file
-def get_var_name(res):
-    name = [x for x in globals() if globals()[x] is res][0]
-    return name[:31] if len(name) >= 31 else name
+from utils.functions import PAYNO_Check, age
 
 # Maps a merit pay discription to an hours multiplier
 payDesc = dict([('Company Income',1),
@@ -198,8 +194,10 @@ res['PAYNO'] = res['PAYNO'].astype(int).round()
 # fill all empty values with a empty string
 res["Ws Id Proof"] = res["Ws Id Proof"].fillna("")
 
+# Create reports/filters on the data here
+
 # gets all restricted ids
-retricted_ids =   res[res["Ws Id Proof"].str.contains("estrict")]
+retricted_ids = res[res["Ws Id Proof"].isin(["Biometric Residence Permit Non-EU (restricted hours / profession)", "Digital Immigration Status ( Restricted hours/Profession & expiry)", "Certificate of Application with a Positive Verification Notice from the Home Office ECS", "Application Registration Card with a Positive Verification Notice from the Home Office ECS", "Positive Verification Notice issued by the Home Office Employer Checking Service"])]
 
 # gets company income over 75/hour and hours < 10
 company_income_above_75_low_hours = res[(res['COMPANY INCOME TOTAL'] >= 75) & (res['TOTAL HOURS'] <= 10)]
@@ -232,22 +230,18 @@ joinDate = pd.to_datetime('01/10/2021', format='%d/%m/%Y')
 #flags fixed expenses under givenn contracting rate
 fixed_expenses_u14 = res[(res['Sdc Option'] == 'Fixed Expenses') & (res['CONTRACTING RATE'] < 14.00)]
 
-#calculation for adjusting the salary sacrifice amount to suit a given minimum contracting rate (cr)
+# calculation for adjusting the salary sacrifice amount to suit a given minimum contracting rate (cr)
 def ADJ_SS(dataframe, cr):
     for i, item in dataframe.iterrows():
-        if item['SALARY SACRIFICE'] > 0:
-            dataframe.at[i, 'ADJ SS'] = (item['TOTAL PAY'] - cr*item['TOTAL HOURS'])
-        else:
-            dataframe.at[i, 'ADJ SS'] = 0
-    return dataframe
+        dataframe.at[i, 'ADJ SS'] = (item['TOTAL PAY'] - cr*item['TOTAL HOURS']) if item['SALARY SACRIFICE'] > 0 else 0
 
 # adjusts ss for following workers to acheive contracting rate of £14
-fixed_expenses_u14 = ADJ_SS(fixed_expenses_u14, 14)
+ADJ_SS(fixed_expenses_u14, 14)
 
 # flags CIS u13
 CIS_u13 = res[(res['Type'] == 'CIS') & (res['CONTRACTING RATE'] < 13)]
     
-CIS_u13 = ADJ_SS(CIS_u13,13)
+ADJ_SS(CIS_u13,13)
 
 # flags workers under sdc with a contracting rate over 12.50 and age over 23
 uSDC_o23 = res[(res['Sdc Option'] == 'Under SDC') & (res['CONTRACTING RATE'] < 12.50) & (res['Date of Birth'].apply(age) >= 23)]
@@ -255,23 +249,23 @@ uSDC_o23 = res[(res['Sdc Option'] == 'Under SDC') & (res['CONTRACTING RATE'] < 1
 # exceptions to the above rule are taken out of the data and applied there own minimum contracting rate
 exceptions = ['PROMAN RECRUITMENT LTD','DANIEL OWEN LTD','JAMES GRAY TRADES LTD', 'JAMES GRAY RECRUITMENT LTD', 'SEARCH CONSULTANCY LIVERPOOL', 'SEARCH CONSULTANCY DUNDEE', 'SEARCH CONSULTANCY MANCHESTER','SEARCH CONSULTANCY LEEDS']
 uSDC_o23_exceptions = uSDC_o23[(uSDC_o23['CONTRACTING RATE'] < 12.19) & (uSDC_o23.COMPNAME.isin(exceptions))]
-uSDC_o23_exceptions = ADJ_SS(uSDC_o23_exceptions,12.50)
+ADJ_SS(uSDC_o23_exceptions,12.50)
 
 # removing workers in exeptions from the following data
 uSDC_o23 = uSDC_o23[~uSDC_o23.COMPNAME.isin(exceptions)]
-uSDC_o23 = ADJ_SS(uSDC_o23,12.50)
+ADJ_SS(uSDC_o23,12.50)
 
 # workers over 21 and under 23 with a contracting rate of 12.06
 o21_u22 = res[(res['Date of Birth'].apply(age) >= 21) & (res['Date of Birth'].apply(age) < 23) & (res['CONTRACTING RATE'] < 12.06)]
-o21_u22 = ADJ_SS(o21_u22,12.06)
+ADJ_SS(o21_u22,12.06)
 
 # workers over 18 and under 21 with a contracting rate of 8.92
 o18_u21 = res[(res['Date of Birth'].apply(age) >= 18) & (res['Date of Birth'].apply(age) < 21) & (res['CONTRACTING RATE'] < 8.92)]
-o18_u21 = ADJ_SS(o18_u21,8.92)
+ADJ_SS(o18_u21,8.92)
 
 # workers under 18 and cr under 6.22
 u18 = res[(res['Date of Birth'].apply(age) <= 18) & (res['CONTRACTING RATE'] < 6.22)]
-u18 = ADJ_SS(u18,5.71)
+ADJ_SS(u18,5.71)
 
 # workers over 90 hours
 o90_hours = res[res['TOTAL HOURS'] > 90]
@@ -283,7 +277,11 @@ both = result[(result["PAYNO"].isin(backdated["PAYNO"].values)) & (result["PAYNO
 
 backdated = backdated[~backdated["PAYNO"].isin(both["PAYNO"].values)].sort_values(by= "PAYNO")
 fordated = fordated[~fordated["PAYNO"].isin(both["PAYNO"].values)].sort_values(by= "PAYNO")
-              
+
+# converts the name of a variable into a string, used to name the sheets on the MCR file
+def get_var_name(res):
+    name = [x for x in globals() if globals()[x] is res][0]
+    return name[:31] if len(name) >= 31 else name         
               
 with pd.ExcelWriter('backdated hours.xlsx') as writer:
     for report in [backdated, both]:
@@ -460,8 +458,10 @@ html = """
 email.HTMLBody = html.format(table1 = under18.to_html(index=False))
 email.Display()
 
+retricted_ids.to_csv("restricted ids.csv", index=False)
+
 email = outlook.CreateItem(0)
-email.To = 'hannah.jarvis@advance.online'
+email.To = 'enquiries@advance.online; hannah.jarvis@advance.online'
 email.CC = 'jacob.sterling@advance.online; joshua.richards@advance.online'
 email.Subject = 'MCR Report - Restricted Ids'
 
@@ -475,6 +475,7 @@ html = """
     </div>
 """
 
+email.Attachments.Add(Source=str(Path().absolute() / "restricted ids.csv"))
 email.HTMLBody = html.format(table1 = retricted_ids.to_html(index=False))
 email.Display()
 

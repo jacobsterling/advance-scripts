@@ -5,27 +5,29 @@ Created on Tue Aug  9 12:59:59 2022
 @author: jacob.sterling
 """
 
-#column for if profit below £10
+# need to create a column for if profit below £10
    
 class rebates:
     def __init__(self):
         import datetime
         from pathlib import Path
 
-        from utils import functions
-        from utils.formats import taxYear
+        from utils import functions, formats
+    
         self.datetime = datetime.datetime
-        
+
         self.pd = __import__('pandas')
         
-        self.yearAbbr = taxYear().Year_format1("-")
-        year = taxYear().Year("-")
+        # defining constants such as tax year, week, core accounts and the user input
+        self.yearAbbr = formats.taxYear().Year_format1("-")
+        year = formats.taxYear().Year("-")
         self.week = functions.tax_calcs().tax_week()
         
         CORE_ACCOUNTS = ['Adam Shaw','Dave Levenston','Gerry Hunnisett','Sam Amos']
         
         userInput = input(rf"Enter Month Number + Year (xx {self.yearAbbr}): ")
         
+        # user input validation
         monthNum, yearInput = userInput.split(" ")
         
         monthNum = int(monthNum)
@@ -36,19 +38,23 @@ class rebates:
         self.yA = int(mx) if mx == yearInput else int(mn)
         
         if monthNum < 1:
-            year = taxYear().Yearp("-")
+            year = formats.taxYear().Yearp("-")
             monthNum += 12
-            
+        
+        # define the paths of the files
         homePath = Path.home() / "advance.online"
         self.rebatesPath = homePath / rf"J Drive - Operations/Finance/Agency Rebates/Rebates {self.yearAbbr}"
         marginsPath = homePath / rf"J Drive - Exec Reports/Margins Reports/Margins {year}"
-        groupsPath = Path.home() / "OneDrive - advance.online/Documents/data/groups.xlsx"
+        # used to identify groups
+        groupsPath = Path.home() / "J Drive - Operations/python-utils/groups.xlsx"
         
+        # workers to exclude rebates from
         self.exceptions = self.pd.read_excel("rebateExceptions.xlsx")
         groups = self.pd.read_excel(groupsPath)
         
         marginsReport = self.pd.read_excel(marginsPath / rf"Margins Report 2022-2023.xlsx", sheet_name= ['Core Data','PAYE Data','Accounts 2'], na_values="-")
         
+        # reading margins report for clients, paye data and accounts
         self.margins = marginsReport['Core Data']
         self.margins['Client Name'] =  self.margins['Client Name'].str.upper()
         self.paye = marginsReport['PAYE Data']
@@ -57,15 +63,19 @@ class rebates:
         
         accounts = marginsReport['Accounts 2'][ marginsReport['Accounts 2']["Account Type"] == "Agency" ]
         
+        # for psf upload
         accounts.loc[~accounts["Nominal Code PSF"].isna() , "Account No"] = accounts.loc[~accounts["Nominal Code PSF"].isna(), "Nominal Code PSF"]
-                
+        
+        # rebate conditions from CRM
         rebateDetails = accounts[~accounts["Rebate Conditions"].isna()].drop_duplicates(subset= "Office Number")
         
         self.margins = self.margins[(marginsReport['Core Data']["CHQDATE"].dt.month == monthNum) & (marginsReport['Core Data']["CHQDATE"].dt.year == yearc)]
         self.margins['Group Name'] = self.margins['Client Name']
         
+        # all chqdates from core data
         self.chqdates = self.margins["CHQDATE"].unique()
         
+        # grouping the agencies by group
         for i, row in groups.iterrows():
             if not self.pd.isnull(row['Office Number']):
                 self.margins.loc[self.margins['Client Name'] == row['Client Name'], 'Office Number'] = float(row['Office Number'])
@@ -82,27 +92,38 @@ class rebates:
     def run(self):
         import re
         
+        #regex from rebate conditions
         condition_match = re.compile(r"(?:(?:(?:([><=]{1,2}) ?([0-9]{1,2}(?:\.[0-9]{1,2})?)?)|((?:[a-zA-Z]{2,8} ?){1,3})) ?= (x?\/?[0-9]{1,2}(?:\.[0-9]{1,2})?x?))")
         
+        # custom error
         def format_error(format, msg):
                 print(rf"OFFNO {row['Office Number']}: Invalid Rebate Condition Format: {format}, {msg}")
                 return
         
+        # iterating though margin data
         for i, row in self.margins.iterrows():
             
+            # margin value and value of rebate
             margin, value = float(row["Margins"]), None
             
+            # filtering exceptions
             if row["PAYNO"] not in self.exceptions["PAYNO"].values and row["Client Name"] not in self.exceptions["Client Name"]:
+                
+                # PAYE rebate calculation
                 if row["Client Name"] in ["CORRIE", "MASTER PEACE RECRUITMENT"] and self.pd.isnull(row["PAYNO"]):
                     value = float(self.paye.loc[row["Week Number"] - 1, "Rebate"]) if row["Client Name"] == "CORRIE" else 0 # or rebate * count of ?? masterpiece
-                    
+                
+                # operates on only agencies with rebate conditions
                 elif not self.pd.isnull(row["Rebate Conditions"]):
                     for condition in condition_match.finditer(row["Rebate Conditions"]):
                         group, v = condition.groups(), None
                         
+                        # if the rebate value exists
                         if group[3]:
+                            # if value contains x (x represents the margin value)
                             if group[3].__contains__("x"):
                                 try:
+                                    # if condition contains division operator margin value is divided by number given else multiplied
                                     if group[3].__contains__("/"):
                                         divisor = float(group[3].replace("x", "").replace("/", ""))
                                         v = margin / divisor if margin > 0 else 0
@@ -119,8 +140,9 @@ class rebates:
                                     format_error(group, "value not a number")
                             
                             if v:
-                                if group[0]:
+                                if group[0]: # optional oporator else use as solution (group 2)
                                     if group[1]:
+                                        # match operator then calculate rebate accordingly
                                         match group[0]:
                                             case "<":
                                                 if margin < float(group[1]) and margin < 0:
@@ -159,13 +181,14 @@ class rebates:
         self.export()
         
     def export(self):
+        # creates the rebate files
         import numpy as np
-        from utils.functions import tax_calcs
+        from utils import functions
         
         max = str(np.max(self.chqdates))
         min = str(np.min(self.chqdates))
         
-        period = tax_calcs().period(max, "%Y-%m-%dT%H:%M:%S.%f000")
+        period = functions.tax_calcs().period(max, "%Y-%m-%dT%H:%M:%S.%f000")
         month = self.pd.to_datetime(max).strftime("%B")
         
         rebateDir = self.rebatesPath / rf"{month} {self.yA}"

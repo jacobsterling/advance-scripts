@@ -51,7 +51,7 @@ class intermediaryReportScript():
         
         self.c = True if input('Type "y" make Changes to files ?: ') == "y" else False
 
-        self.groupsPath = Path.home() / "OneDrive - advance.online/Documents/Data/Groups.xlsx"
+        self.groupsPath = Path.home() / "J Drive - Operations/python-utils/groups.xlsx"
         
         self.missingData = pd.DataFrame([],columns = ['Name','Missing Info'])
     
